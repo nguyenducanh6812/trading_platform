@@ -1,0 +1,56 @@
+{
+  "components": [
+    {
+      "label": "InstrumentCodes",
+      "values": [
+        {
+          "label": "BTC",
+          "value": "BTC"
+        },
+        {
+          "label": "ETH",
+          "value": "ETH"
+        }
+      ],
+      "type": "checklist",
+      "layout": {
+        "row": "Row_1snpvja",
+        "columns": null
+      },
+      "id": "Field_1ct7p1k",
+      "key": "instrumentCodes"
+    },
+    {
+      "subtype": "date",
+      "dateLabel": "Start Date",
+      "type": "datetime",
+      "layout": {
+        "row": "Row_1xp0mni",
+        "columns": null
+      },
+      "id": "Field_1iah7dc",
+      "key": "startDate"
+    },
+    {
+      "subtype": "date",
+      "dateLabel": "End Date",
+      "type": "datetime",
+      "layout": {
+        "row": "Row_0drqmdg",
+        "columns": null
+      },
+      "id": "Field_0zoxcli",
+      "key": "endDate"
+    }
+  ],
+  "type": "default",
+  "id": "Form_startPredictExpectedReturnARIMADiffOC",
+  "exporter": {
+    "name": "Camunda Modeler",
+    "version": "5.38.1"
+  },
+  "executionPlatform": "Camunda Platform",
+  "executionPlatformVersion": "7.23.0",
+  "versionTag": "1.0.0",
+  "schemaVersion": 19
+}

@@ -1,0 +1,29 @@
+D:\trading_platform\trading_platform\src\main\java\com\ahd\trading_platform\marketdata\infrastructure\external\BybitDataClient.java:100:81
+java: category has private access in com.ahd.trading_platform.marketdata.domain.valueobjects.BybitMarketType
+
+
+D:\trading_platform\trading_platform\src\main\java\com\ahd\trading_platform\marketdata\infrastructure\external\BybitDataClient.java:106:61
+java: result has private access in com.ahd.trading_platform.marketdata.infrastructure.external.dto.bybit.BybitTickerResponse
+
+D:\trading_platform\trading_platform\src\main\java\com\ahd\trading_platform\marketdata\infrastructure\external\BybitDataClient.java:106:68
+java: cannot find symbol
+  symbol:   method getTickerList()
+  location: variable result of type com.ahd.trading_platform.marketdata.infrastructure.external.dto.bybit.BybitTickerResponse.TickerResult
+
+D:\trading_platform\trading_platform\src\main\java\com\ahd\trading_platform\marketdata\infrastructure\external\BybitDataClient.java:123:81
+java: category has private access in com.ahd.trading_platform.marketdata.domain.valueobjects.BybitMarketType
+
+D:\trading_platform\trading_platform\src\main\java\com\ahd\trading_platform\marketdata\infrastructure\external\BybitDataClient.java:150:91
+java: category has private access in com.ahd.trading_platform.marketdata.domain.valueobjects.BybitMarketType
+
+D:\trading_platform\trading_platform\src\main\java\com\ahd\trading_platform\marketdata\infrastructure\external\BybitDataClient.java:157:44
+java: result has private access in com.ahd.trading_platform.marketdata.infrastructure.external.dto.bybit.BybitInstrumentsResponse
+
+D:\trading_platform\trading_platform\src\main\java\com\ahd\trading_platform\marketdata\infrastructure\external\BybitDataClient.java:157:51
+java: cannot find symbol
+  symbol:   method getInstrumentList()
+  location: variable result of type com.ahd.trading_platform.marketdata.infrastructure.external.dto.bybit.BybitInstrumentsResponse.InstrumentsResult
+
+
+D:\trading_platform\trading_platform\src\main\java\com\ahd\trading_platform\marketdata\infrastructure\external\BybitDataClient.java:179:24
+java: category has private access in com.ahd.trading_platform.marketdata.domain.valueobjects.BybitMarketType

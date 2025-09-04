@@ -1,0 +1,73 @@
+{
+  "components": [
+    {
+      "label": "InstrumentCodes",
+      "values": [
+        {
+          "label": "BTC",
+          "value": "BTC"
+        },
+        {
+          "label": "ETH",
+          "value": "ETH"
+        }
+      ],
+      "type": "checklist",
+      "layout": {
+        "row": "Row_1jwxc3t",
+        "columns": null
+      },
+      "id": "Field_03sftl4",
+      "key": "instrumentCodes"
+    },
+    {
+      "label": "Is first launch",
+      "type": "checkbox",
+      "layout": {
+        "row": "Row_1dxjvei",
+        "columns": null
+      },
+      "id": "Field_01lp3fa",
+      "key": "launchNewInstruments",
+      "defaultValue": true
+    },
+    {
+      "subtype": "date",
+      "dateLabel": "Start Date",
+      "type": "datetime",
+      "layout": {
+        "row": "Row_19p8h3n",
+        "columns": null
+      },
+      "id": "Field_0cjmjoe",
+      "key": "startDate",
+      "conditional": {
+        "hide": "=launchNewInstruments"
+      }
+    },
+    {
+      "subtype": "date",
+      "dateLabel": "End Date",
+      "type": "datetime",
+      "layout": {
+        "row": "Row_16ke33k",
+        "columns": null
+      },
+      "id": "Field_0mrkvcy",
+      "key": "endDate",
+      "conditional": {
+        "hide": "=launchNewInstruments"
+      }
+    }
+  ],
+  "type": "default",
+  "id": "startFetchInstrument",
+  "exporter": {
+    "name": "Camunda Modeler",
+    "version": "5.38.1"
+  },
+  "executionPlatform": "Camunda Platform",
+  "executionPlatformVersion": "7.23.0",
+  "schemaVersion": 19,
+  "versionTag": "1.0.0"
+}

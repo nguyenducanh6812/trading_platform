@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./mvnw clean compile)",
+      "Bash(java:*)",
+      "Bash(grep:*)",
+      "Bash(mvn clean:*)",
+      "Bash(./mvnw.cmd clean compile)",
+      "Bash(mvnw.cmd clean:*)",
+      "Bash(./mvnw:*)",
+      "Bash(timeout:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:docs.camunda.org)",
+      "Bash(find:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

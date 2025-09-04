@@ -1,0 +1,163 @@
+# Spring Boot Configuration
+spring:
+  application:
+    name: trading-platform
+  
+  # Database Configuration (PostgreSQL)
+  datasource:
+    url: jdbc:postgresql://localhost:5432/trading_platform
+    driver-class-name: org.postgresql.Driver
+    username: trading_user
+    password: trading_password
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 30000
+      max-lifetime: 1800000
+  
+  # JPA Configuration
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        use_sql_comments: true
+        generate_statistics: false
+        jdbc:
+          lob:
+            non_contextual_creation: true
+
+# Camunda BPM Configuration
+camunda:
+  bpm:
+    admin-user:
+      id: demo
+      password: demo
+    filter:
+      create: All tasks
+    webapp:
+      index-redirect-enabled: true
+    # External Task Client Configuration - Production Ready
+    client:
+      base-url: ${CAMUNDA_BASE_URL:http://localhost:8080/engine-rest}
+      worker-id: ${CAMUNDA_WORKER_ID:trading-platform-worker}
+      max-tasks: ${CAMUNDA_MAX_TASKS:10}
+      use-priority: true
+      async-response-timeout: ${CAMUNDA_ASYNC_TIMEOUT:10000}  # 10 seconds for long polling
+      lock-duration: ${CAMUNDA_LOCK_DURATION:120000}  # 2 minutes - should be longer than expected task execution time
+      default-serialization-format: application/json
+      # Backoff strategy for when no tasks are available
+      disable-backoff-strategy: false
+      backoff-strategy-time: ${CAMUNDA_BACKOFF_TIME:2000}  # 2 seconds between fetch attempts
+      # Basic authentication for production
+      basic-auth:
+        username: ${CAMUNDA_BASIC_AUTH_USERNAME:demo}
+        password: ${CAMUNDA_BASIC_AUTH_PASSWORD:demo}
+      # Topic subscriptions with specific configurations
+      subscriptions:
+        fetch-instruments-data:
+          process-definition-key: ${CAMUNDA_PROCESS_DEFINITION_KEY:Process_Fetch_Instrument_Data}
+          variable-names: instrumentCodes,startDate,endDate,launchNewInstruments,resource
+          include-extension-properties: true
+          lock-duration: ${CAMUNDA_FETCH_DATA_LOCK_DURATION:300000}  # 5 minutes for data fetching tasks
+          auto-open: true
+
+# Market Data Module Configuration  
+market-data:
+  external:
+    provider: bybit  # Primary data provider: bybit
+    timeout: 30s
+    max-retries: 3
+    rate-limit:
+      requests-per-minute: 120  # Bybit allows 120 req/min for public endpoints
+    bybit:
+      baseUrl: https://api.bybit.com
+  
+  storage:
+    batch-size: 1000
+    enable-compression: true
+    
+  validation:
+    max-daily-change: 0.5 # 50% daily change threshold
+    min-data-points: 30
+    quality-threshold: 0.8
+
+# Logging Configuration
+logging:
+  level:
+    com.ahd.trading_platform.marketdata: DEBUG
+    org.camunda.bpm.client: INFO
+    org.springframework.cloud.openfeign: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%logger{36}] - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%logger{36}] - %msg%n"
+  file:
+    name: logs/trading-platform.log
+    max-size: 100MB
+    max-history: 30
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,modulith
+  endpoint:
+    health:
+      show-details: always
+  health:
+    db:
+      enabled: true
+  info:
+    env:
+      enabled: true
+
+# Server Configuration
+server:
+  port: 8080
+  servlet:
+    context-path: /
+  compression:
+    enabled: true
+    mime-types: application/json,text/html,text/xml,text/plain,application/javascript,text/css
+
+# Spring Modulith Configuration  
+spring.modulith:
+  events:
+    enabled: true
+    republish-outstanding-events-on-restart: true
+  actuator:
+    enabled: true
+
+# SpringDoc/Swagger Configuration
+springdoc:
+  api-docs:
+    path: /api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operationsSorter: method
+    tagsSorter: alpha
+    displayRequestDuration: true
+    showExtensions: true
+    showCommonExtensions: true
+  group-configs:
+    - group: trading-platform-api
+      display-name: Trading Platform API
+      paths-to-match: /api/**
+    - group: market-data
+      display-name: Market Data API  
+      paths-to-match: /api/market-data/**
+    - group: portfolio
+      display-name: Portfolio Management API
+      paths-to-match: /api/portfolio/**
+    - group: workflows
+      display-name: Workflow Management API
+      paths-to-match: /api/workflows/**
