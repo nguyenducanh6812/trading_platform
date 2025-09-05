@@ -2,8 +2,8 @@ package com.ahd.trading_platform.marketdata.infrastructure.persistence.repositor
 
 import com.ahd.trading_platform.marketdata.domain.entities.MarketInstrument;
 import com.ahd.trading_platform.marketdata.domain.repositories.MarketDataRepository;
-import com.ahd.trading_platform.marketdata.domain.valueobjects.OHLCV;
-import com.ahd.trading_platform.marketdata.domain.valueobjects.TimeRange;
+import com.ahd.trading_platform.shared.valueobjects.OHLCV;
+import com.ahd.trading_platform.shared.valueobjects.TimeRange;
 import com.ahd.trading_platform.marketdata.infrastructure.persistence.entities.MarketInstrumentEntity;
 import com.ahd.trading_platform.marketdata.infrastructure.persistence.mappers.MarketDataMapper;
 

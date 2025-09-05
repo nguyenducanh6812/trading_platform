@@ -1,0 +1,27 @@
+1. The current logic of mode current date is wrong, method determineTimeRange, class ExecuteARIMAForecastUseCase:
+        if (request.isCurrentDateMode()) {
+            // Current date mode: Use default range for ARIMA forecasting (last 2 years of data)
+            LocalDate endDate = LocalDate.now();
+            LocalDate startDate = endDate.minusYears(2);
+            return new TimeRange(startDate.atStartOfDay().toInstant(java.time.ZoneOffset.UTC),
+                                   endDate.atStartOfDay().toInstant(java.time.ZoneOffset.UTC));
+If it is current date, then we will find expected return for current date. It should not have start 2 year ago.
+Like to day I want to find expected return today, that all. It help for realtime trading analystic.
+Else we find expected return for a list of date in range from start to end.
+
+2. Convert MarketDataInstrument
+            // Retrieve historical price data from Market Data module
+            // Convert shared TradingInstrument to marketdata TradingInstrument for API compatibility
+            com.ahd.trading_platform.shared.valueobjects.TradingInstrument marketDataInstrument =
+                convertToMarketDataInstrument(instrument);
+Why we need this code?
+Is that possible to using the same object in shared?
+
+
+3. The last but important.
+We should store the predict expected return to database, then we can reuse it for the next time.
+When store we should have a column to identify which arima lag we are using. For example I have just changed the name of master data file
+to add 20250904 to that file, so we can identify that we are using that master data to find predict expected return.
+
+And I see you return all predicted expected return to process variable, but it is incorect. The process variable should not have large business data
+So should store to database, then return process variable the predict success, and the code to retrieve, like arima code 20250904...

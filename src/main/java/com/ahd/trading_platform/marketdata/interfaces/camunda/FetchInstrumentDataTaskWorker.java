@@ -2,9 +2,10 @@ package com.ahd.trading_platform.marketdata.interfaces.camunda;
 
 import com.ahd.trading_platform.marketdata.application.dto.MarketDataRequest;
 import com.ahd.trading_platform.marketdata.application.usecases.FetchHistoricalDataUseCase;
-import com.ahd.trading_platform.marketdata.domain.valueobjects.TimeRange;
-import com.ahd.trading_platform.marketdata.domain.valueobjects.TradingInstrument;
-import com.ahd.trading_platform.marketdata.domain.valueobjects.DataSourceType;
+import com.ahd.trading_platform.shared.valueobjects.TimeRange;
+import com.ahd.trading_platform.shared.valueobjects.TradingInstrument;
+import com.ahd.trading_platform.shared.valueobjects.*;
+import com.ahd.trading_platform.marketdata.domain.valueobjects.*;
 import com.ahd.trading_platform.marketdata.domain.constants.TradingConstants;
 import static com.ahd.trading_platform.marketdata.interfaces.camunda.ProcessVariables.*;
 
@@ -109,7 +110,7 @@ public class FetchInstrumentDataTaskWorker implements ExternalTaskHandler {
                 processInstanceId, taskId, e);
             
             String errorMessage = "Orchestration failure: " + e.getMessage();
-            String errorDetails = "Failed to orchestrate instrument data fetch: " + e.toString();
+            String errorDetails = "Failed to orchestrate instrument data fetch: " + e;
             
             int retries = externalTask.getRetries() != null ? externalTask.getRetries() - 1 : 2;
             long retryTimeout = 60000L; // 1 minute retry timeout
@@ -141,10 +142,7 @@ public class FetchInstrumentDataTaskWorker implements ExternalTaskHandler {
             String resource = externalTask.getVariable(RESOURCE);
             DataSourceType dataSourceType = (resource != null && !resource.trim().isEmpty()) ? 
                 DataSourceType.fromCode(resource) : DataSourceType.getDefault();
-            
-            // instrumentCodes is already validated TradingInstrument enum list
-            List<TradingInstrument> validatedInstruments = instrumentCodes;
-            
+
             // Handle date range logic based on launchNewInstruments flag
             LocalDate startDate;
             LocalDate endDate;
@@ -190,7 +188,7 @@ public class FetchInstrumentDataTaskWorker implements ExternalTaskHandler {
             // Create TimeRange using the fromDates static method
             TimeRange timeRange = TimeRange.fromDates(startDate, endDate);
             
-            return new OrchestrationInput(validatedInstruments, timeRange, startDate, endDate, isLaunchNew, dataSourceType);
+            return new OrchestrationInput(instrumentCodes, timeRange, startDate, endDate, isLaunchNew, dataSourceType);
             
         } catch (InvalidProcessVariablesException e) {
             // Re-throw validation errors

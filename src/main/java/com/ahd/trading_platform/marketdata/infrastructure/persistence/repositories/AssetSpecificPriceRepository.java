@@ -1,7 +1,7 @@
 package com.ahd.trading_platform.marketdata.infrastructure.persistence.repositories;
 
-import com.ahd.trading_platform.marketdata.domain.valueobjects.OHLCV;
-import com.ahd.trading_platform.marketdata.domain.valueobjects.TimeRange;
+import com.ahd.trading_platform.shared.valueobjects.OHLCV;
+import com.ahd.trading_platform.shared.valueobjects.TimeRange;
 
 import java.util.List;
 import java.util.Optional;

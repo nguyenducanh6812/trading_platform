@@ -13,4 +13,5 @@
  * @version 1.0
  * @since 2025-01-01
  */
+@org.springframework.modulith.NamedInterface("valueobjects")
 package com.ahd.trading_platform.shared;

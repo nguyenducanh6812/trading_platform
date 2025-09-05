@@ -1,4 +1,6 @@
-package com.ahd.trading_platform.marketdata.domain.valueobjects;
+package com.ahd.trading_platform.shared.valueobjects;
+
+import org.springframework.modulith.NamedInterface;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -8,6 +10,7 @@ import java.util.Objects;
  * OHLCV (Open, High, Low, Close, Volume) data point value object.
  * Represents a single candlestick/bar of market data with volume.
  */
+@NamedInterface
 public record OHLCV(
     Price open,
     Price high, 

@@ -1,6 +1,7 @@
 package com.ahd.trading_platform.shared.valueobjects;
 
 import lombok.Getter;
+import org.springframework.modulith.NamedInterface;
 
 import java.util.Arrays;
 import java.util.List;
@@ -11,6 +12,7 @@ import java.util.stream.Collectors;
  * This is a shared concept across multiple bounded contexts (Market Data, Forecasting, Analytics).
  * Provides type safety and validation for instrument codes.
  */
+@NamedInterface
 @Getter
 public enum TradingInstrument {
     BTC("BTC", "Bitcoin", "BTC", "USD"),

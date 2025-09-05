@@ -1,5 +1,7 @@
 package com.ahd.trading_platform.marketdata.application.dto;
 
+import com.ahd.trading_platform.shared.valueobjects.*;
+import com.ahd.trading_platform.marketdata.domain.valueobjects.*;
 import com.ahd.trading_platform.marketdata.domain.valueobjects.DataQualityMetrics;
 import com.fasterxml.jackson.annotation.JsonFormat;
 

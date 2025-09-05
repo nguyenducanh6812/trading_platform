@@ -68,10 +68,10 @@ public class ARIMAMasterDataLoader implements ARIMAModelRepository {
             modelCache.clear();
             
             // Load BTC model
-            loadModelForInstrument(TradingInstrument.BTC, "btc_arima_model.json");
+            loadModelForInstrument(TradingInstrument.BTC, "btc_arima_model_20250904.json");
             
             // Load ETH model
-            loadModelForInstrument(TradingInstrument.ETH, "eth_arima_model.json");
+            loadModelForInstrument(TradingInstrument.ETH, "eth_arima_model_20250904.json");
             
             log.info("Successfully loaded {} ARIMA models", modelCache.size());
             

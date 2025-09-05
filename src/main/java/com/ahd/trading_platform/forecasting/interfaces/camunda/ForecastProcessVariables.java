@@ -11,8 +11,9 @@ public final class ForecastProcessVariables {
     public static final String INSTRUMENT_CODES = "instrumentCodes";
     public static final String START_DATE = "startDate";
     public static final String END_DATE = "endDate";
-    public static final String USE_DEFAULT_RANGE = "useDefaultRange";
+    public static final String IS_CURRENT_DATE = "isCurrentDate";
     public static final String INCLUDE_CALCULATION_DETAILS = "includeCalculationDetails";
+    public static final String ARIMA_MODEL_VERSION = "arimaModelVersion";
     
     // Output variables - returned by workers
     public static final String EXECUTION_ID = "executionId";

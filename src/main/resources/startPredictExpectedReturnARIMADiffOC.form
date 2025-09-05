@@ -21,6 +21,16 @@
       "key": "instrumentCodes"
     },
     {
+      "label": "Current Date",
+      "type": "checkbox",
+      "layout": {
+        "row": "Row_1uryhti",
+        "columns": null
+      },
+      "id": "Field_0xsrqsa",
+      "key": "isCurrentDate"
+    },
+    {
       "subtype": "date",
       "dateLabel": "Start Date",
       "type": "datetime",
@@ -41,10 +51,27 @@
       },
       "id": "Field_0zoxcli",
       "key": "endDate"
+    },
+    {
+      "label": "Arima Model Version",
+      "values": [
+        {
+          "label": "20250904",
+          "value": "20250904"
+        }
+      ],
+      "type": "select",
+      "layout": {
+        "row": "Row_1mg9adg",
+        "columns": null
+      },
+      "id": "Field_1ql5zmh",
+      "key": "arimaModelVersion",
+      "defaultValue": "value"
     }
   ],
   "type": "default",
-  "id": "Form_startPredictExpectedReturnARIMADiffOC",
+  "id": "startPredictExpectedReturnARIMADiffOC",
   "exporter": {
     "name": "Camunda Modeler",
     "version": "5.38.1"

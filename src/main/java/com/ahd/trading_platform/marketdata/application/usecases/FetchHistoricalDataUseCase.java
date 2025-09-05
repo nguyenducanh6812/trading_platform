@@ -5,8 +5,8 @@ import com.ahd.trading_platform.marketdata.application.dto.MarketDataResponse;
 import com.ahd.trading_platform.marketdata.domain.entities.MarketInstrument;
 import com.ahd.trading_platform.marketdata.domain.repositories.MarketDataRepository;
 import com.ahd.trading_platform.marketdata.domain.services.DataValidationService;
-import com.ahd.trading_platform.marketdata.domain.valueobjects.OHLCV;
-import com.ahd.trading_platform.marketdata.domain.valueobjects.TimeRange;
+import com.ahd.trading_platform.shared.valueobjects.OHLCV;
+import com.ahd.trading_platform.shared.valueobjects.TimeRange;
 import com.ahd.trading_platform.marketdata.domain.services.ExternalDataClientFactory;
 import com.ahd.trading_platform.marketdata.domain.services.ExternalDataClientStrategy;
 

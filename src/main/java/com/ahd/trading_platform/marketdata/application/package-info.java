@@ -8,5 +8,6 @@
  * 
  * This layer orchestrates domain operations but contains no business logic itself.
  */
+@org.springframework.modulith.NamedInterface("ports")
 @org.springframework.lang.NonNullApi
 package com.ahd.trading_platform.marketdata.application;

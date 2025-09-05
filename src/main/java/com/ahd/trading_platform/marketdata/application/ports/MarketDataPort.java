@@ -1,8 +1,9 @@
 package com.ahd.trading_platform.marketdata.application.ports;
 
-import com.ahd.trading_platform.marketdata.domain.valueobjects.OHLCV;
-import com.ahd.trading_platform.marketdata.domain.valueobjects.TimeRange;
-import com.ahd.trading_platform.marketdata.domain.valueobjects.TradingInstrument;
+import com.ahd.trading_platform.shared.valueobjects.OHLCV;
+import com.ahd.trading_platform.shared.valueobjects.TimeRange;
+import com.ahd.trading_platform.shared.valueobjects.TradingInstrument;
+import org.springframework.modulith.NamedInterface;
 
 import java.util.List;
 
@@ -10,6 +11,7 @@ import java.util.List;
  * Port interface for Market Data module operations.
  * Provides access to historical market data for other modules.
  */
+@NamedInterface
 public interface MarketDataPort {
     
     /**

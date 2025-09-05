@@ -2,9 +2,10 @@ package com.ahd.trading_platform.marketdata.infrastructure.mappers;
 
 import com.ahd.trading_platform.marketdata.application.dto.MarketDataResponse;
 import com.ahd.trading_platform.marketdata.domain.entities.MarketInstrument;
-import com.ahd.trading_platform.marketdata.domain.valueobjects.DataQualityMetrics;
-import com.ahd.trading_platform.marketdata.domain.valueobjects.OHLCV;
-import com.ahd.trading_platform.marketdata.domain.valueobjects.Price;
+import com.ahd.trading_platform.shared.valueobjects.*;
+import com.ahd.trading_platform.marketdata.domain.valueobjects.*;
+import com.ahd.trading_platform.shared.valueobjects.OHLCV;
+import com.ahd.trading_platform.shared.valueobjects.Price;
 import com.ahd.trading_platform.marketdata.infrastructure.persistence.entities.MarketInstrumentEntity;
 import com.ahd.trading_platform.marketdata.infrastructure.persistence.entities.BtcPriceEntity;
 import com.ahd.trading_platform.marketdata.infrastructure.persistence.entities.EthPriceEntity;

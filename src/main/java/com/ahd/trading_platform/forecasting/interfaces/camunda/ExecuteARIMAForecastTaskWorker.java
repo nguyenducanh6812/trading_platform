@@ -3,6 +3,7 @@ package com.ahd.trading_platform.forecasting.interfaces.camunda;
 import com.ahd.trading_platform.forecasting.application.dto.ForecastRequest;
 import com.ahd.trading_platform.forecasting.application.dto.ForecastResponse;
 import com.ahd.trading_platform.forecasting.application.usecases.ExecuteARIMAForecastUseCase;
+import com.ahd.trading_platform.forecasting.application.services.ForecastResultPersistenceService;
 import com.ahd.trading_platform.shared.valueobjects.TradingInstrument;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,10 +27,10 @@ import static com.ahd.trading_platform.forecasting.interfaces.camunda.ForecastPr
  */
 @Component
 @ExternalTaskSubscription(
-    topicName = "execute-arima-forecast",
+    topicName = "predict-expected-return-arima-diffoc",
     lockDuration = 300000L,  // 5 minutes for forecast execution
     includeExtensionProperties = true,
-    variableNames = {INSTRUMENT_CODES, START_DATE, END_DATE, USE_DEFAULT_RANGE, INCLUDE_CALCULATION_DETAILS}
+    variableNames = {INSTRUMENT_CODES, START_DATE, END_DATE, IS_CURRENT_DATE, INCLUDE_CALCULATION_DETAILS, ARIMA_MODEL_VERSION}
 )
 @RequiredArgsConstructor
 @Slf4j
@@ -37,6 +38,7 @@ public class ExecuteARIMAForecastTaskWorker implements ExternalTaskHandler {
     
     private final ExecuteARIMAForecastUseCase executeARIMAForecastUseCase;
     private final ObjectMapper objectMapper;
+    private final ForecastResultPersistenceService persistenceService;
     
     @Override
     public void execute(ExternalTask externalTask, ExternalTaskService externalTaskService) {
@@ -50,9 +52,9 @@ public class ExecuteARIMAForecastTaskWorker implements ExternalTaskHandler {
             OrchestrationInput input = extractOrchestrationInput(externalTask);
             
             // Execute forecasts for all requested instruments
-            Map<String, ForecastResponse> forecastResults = new HashMap<>();
-            Map<String, Double> expectedReturns = new HashMap<>();
-            Map<String, Double> confidenceLevels = new HashMap<>();
+            Map<String, Boolean> forecastSuccess = new HashMap<>();
+            Map<String, String> forecastErrors = new HashMap<>();
+            int successfulForecasts = 0;
             
             for (TradingInstrument instrument : input.instrumentCodes()) {
                 // Create forecast request for this instrument
@@ -60,23 +62,26 @@ public class ExecuteARIMAForecastTaskWorker implements ExternalTaskHandler {
                     instrument.getCode(),
                     input.startDate(),
                     input.endDate(),
-                    input.useDefaultRange(),
+                    input.isCurrentDate(),
                     input.includeCalculationDetails()
                 );
                 
                 // Execute forecast using domain use case
-                ForecastResponse response = executeARIMAForecastUseCase.execute(request);
+                ForecastResponse response = executeARIMAForecastUseCase.execute(request, input.arimaModelVersion());
                 
-                // Collect results
-                forecastResults.put(instrument.getCode(), response);
+                // Collect orchestration results only (no business data)
                 if (response.isSuccessful()) {
-                    expectedReturns.put(instrument.getCode(), response.expectedReturn());
-                    confidenceLevels.put(instrument.getCode(), response.confidenceLevel());
+                    forecastSuccess.put(instrument.getCode(), true);
+                    successfulForecasts++;
+                } else {
+                    forecastSuccess.put(instrument.getCode(), false);
+                    forecastErrors.put(instrument.getCode(), response.errorMessage());
                 }
             }
             
-            // Create orchestration output
-            Map<String, Object> orchestrationOutput = createOrchestrationOutput(input, forecastResults, expectedReturns, confidenceLevels);
+            // Create orchestration output (no business data)
+            Map<String, Object> orchestrationOutput = createOrchestrationOutput(
+                input, forecastSuccess, forecastErrors, successfulForecasts, input.arimaModelVersion());
             
             // Complete task with orchestration data only
             externalTaskService.complete(externalTask, orchestrationOutput);
@@ -104,17 +109,36 @@ public class ExecuteARIMAForecastTaskWorker implements ExternalTaskHandler {
                 throw new InvalidProcessVariablesException("instrumentCodes is required and cannot be empty");
             }
             
-            // Extract optional date range parameters
-            String startDate = (String) externalTask.getVariable(START_DATE);
-            String endDate = (String) externalTask.getVariable(END_DATE);
-            Boolean useDefaultRange = (Boolean) externalTask.getVariable(USE_DEFAULT_RANGE);
-            Boolean includeCalculationDetails = (Boolean) externalTask.getVariable(INCLUDE_CALCULATION_DETAILS);
+            // Extract mode and date parameters
+            String startDate = externalTask.getVariable(START_DATE);
+            String endDate = externalTask.getVariable(END_DATE);
+            Boolean isCurrentDate = externalTask.getVariable(IS_CURRENT_DATE);
+            Boolean includeCalculationDetails = externalTask.getVariable(INCLUDE_CALCULATION_DETAILS);
+            String arimaModelVersion = externalTask.getVariable(ARIMA_MODEL_VERSION);
             
             // Default values
-            if (useDefaultRange == null) useDefaultRange = Boolean.TRUE;
+            if (isCurrentDate == null) isCurrentDate = Boolean.TRUE;  // Default to current date mode
             if (includeCalculationDetails == null) includeCalculationDetails = Boolean.FALSE;
+            if (arimaModelVersion == null) {
+                // For current date mode, use current date as model version; for backtesting, it's required
+                if (isCurrentDate) {
+                    arimaModelVersion = persistenceService.getCurrentArimaModelVersion();
+                } else {
+                    throw new InvalidProcessVariablesException(
+                        "arimaModelVersion is required for backtesting mode (isCurrentDate=false)");
+                }
+            }
             
-            return new OrchestrationInput(instrumentCodes, startDate, endDate, useDefaultRange, includeCalculationDetails);
+            // Validate parameters based on mode
+            if (!isCurrentDate) {
+                // Backtesting mode - start and end dates are required
+                if (startDate == null || endDate == null) {
+                    throw new InvalidProcessVariablesException(
+                        "startDate and endDate are required when isCurrentDate=false (backtesting mode)");
+                }
+            }
+            
+            return new OrchestrationInput(instrumentCodes, startDate, endDate, isCurrentDate, includeCalculationDetails, arimaModelVersion);
             
         } catch (Exception e) {
             throw new InvalidProcessVariablesException("Failed to extract process variables: " + e.getMessage(), e);
@@ -158,9 +182,10 @@ public class ExecuteARIMAForecastTaskWorker implements ExternalTaskHandler {
     
     private Map<String, Object> createOrchestrationOutput(
             OrchestrationInput input, 
-            Map<String, ForecastResponse> forecastResults,
-            Map<String, Double> expectedReturns,
-            Map<String, Double> confidenceLevels) {
+            Map<String, Boolean> forecastSuccess,
+            Map<String, String> forecastErrors,
+            int successfulForecasts,
+            String arimaModelVersion) {
         
         Map<String, Object> variables = new HashMap<>();
         
@@ -169,26 +194,20 @@ public class ExecuteARIMAForecastTaskWorker implements ExternalTaskHandler {
         variables.put(TASK_COMPLETED, true);
         variables.put(COMPLETED_AT, System.currentTimeMillis());
         
-        // Forecast results summary (for Analytics module consumption)
-        variables.put(EXPECTED_RETURNS, expectedReturns);
-        variables.put(CONFIDENCE_LEVELS, confidenceLevels);
+        // Summary data for next steps (no detailed business data)
+        variables.put("successfulForecasts", successfulForecasts);
+        variables.put("totalInstruments", input.instrumentCodes().size());
+        variables.put("arimaModelVersion", arimaModelVersion);
         
-        // Check for any failures
-        boolean hasFailures = forecastResults.values().stream()
-            .anyMatch(response -> !response.isSuccessful());
-        
-        if (hasFailures) {
-            List<String> errorMessages = forecastResults.values().stream()
-                .filter(response -> !response.isSuccessful())
-                .map(ForecastResponse::errorMessage)
-                .toList();
-            variables.put(ERROR_MESSAGE, String.join("; ", errorMessages));
+        // Error information if any failures occurred
+        if (!forecastErrors.isEmpty()) {
+            variables.put(ERROR_MESSAGE, String.join("; ", forecastErrors.values()));
+            variables.put("failedInstruments", forecastErrors.keySet());
         }
         
-        // Additional metadata for monitoring
-        variables.put("forecastedInstruments", forecastResults.keySet());
-        variables.put("successfulForecasts", expectedReturns.size());
-        variables.put("totalInstruments", input.instrumentCodes().size());
+        // Success indicators
+        variables.put("allForecastsSuccessful", forecastErrors.isEmpty());
+        variables.put("hasPartialFailures", !forecastErrors.isEmpty() && successfulForecasts > 0);
         
         return variables;
     }
@@ -200,8 +219,9 @@ public class ExecuteARIMAForecastTaskWorker implements ExternalTaskHandler {
         List<TradingInstrument> instrumentCodes,
         String startDate,
         String endDate,
-        Boolean useDefaultRange,
-        Boolean includeCalculationDetails
+        Boolean isCurrentDate,
+        Boolean includeCalculationDetails,
+        String arimaModelVersion
     ) {}
     
     /**

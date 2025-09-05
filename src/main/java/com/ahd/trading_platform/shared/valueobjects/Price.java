@@ -1,4 +1,6 @@
-package com.ahd.trading_platform.marketdata.domain.valueobjects;
+package com.ahd.trading_platform.shared.valueobjects;
+
+import org.springframework.modulith.NamedInterface;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -8,6 +10,7 @@ import java.util.Objects;
  * Price value object representing monetary price with proper precision handling.
  * Immutable and handles financial calculations with proper rounding.
  */
+@NamedInterface
 public record Price(BigDecimal amount, String currency) {
     
     private static final int SCALE = 8; // Crypto precision

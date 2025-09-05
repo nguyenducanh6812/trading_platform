@@ -2,9 +2,9 @@ package com.ahd.trading_platform.forecasting.domain.services;
 
 import com.ahd.trading_platform.forecasting.domain.entities.ARIMAModel;
 import com.ahd.trading_platform.forecasting.domain.valueobjects.*;
-import com.ahd.trading_platform.marketdata.domain.valueobjects.OHLCV;
-import com.ahd.trading_platform.marketdata.domain.valueobjects.Price;
-import com.ahd.trading_platform.marketdata.domain.valueobjects.TradingInstrument;
+import com.ahd.trading_platform.shared.valueobjects.OHLCV;
+import com.ahd.trading_platform.shared.valueobjects.Price;
+import com.ahd.trading_platform.shared.valueobjects.TradingInstrument;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -321,13 +321,8 @@ class ARIMACalculationServiceTest {
             double low = Math.min(open, close) - Math.random() * 200;
             long volume = (long) (Math.random() * 1000000 + 500000);
             
-            OHLCV ohlcv = OHLCV.of(
-                timestamp,
-                Price.usd(open),
-                Price.usd(high),
-                Price.usd(low),
-                Price.usd(close),
-                volume
+            OHLCV ohlcv = OHLCV.fromUsdValues(
+                open, high, low, close, volume, timestamp
             );
             
             priceData.add(ohlcv);
@@ -352,13 +347,8 @@ class ARIMACalculationServiceTest {
             double low = Math.min(open, close) - Math.random() * 5;
             long volume = 100000;
             
-            OHLCV ohlcv = OHLCV.of(
-                timestamp,
-                Price.usd(open),
-                Price.usd(high),
-                Price.usd(low),
-                Price.usd(close),
-                volume
+            OHLCV ohlcv = OHLCV.fromUsdValues(
+                open, high, low, close, volume, timestamp
             );
             
             priceData.add(ohlcv);
@@ -383,13 +373,8 @@ class ARIMACalculationServiceTest {
             double low = Math.min(open, close) - Math.random() * 1000;
             long volume = (long) (Math.random() * 2000000 + 1000000);
             
-            OHLCV ohlcv = OHLCV.of(
-                timestamp,
-                Price.usd(open),
-                Price.usd(high),
-                Price.usd(low),
-                Price.usd(close),
-                volume
+            OHLCV ohlcv = OHLCV.fromUsdValues(
+                open, high, low, close, volume, timestamp
             );
             
             priceData.add(ohlcv);

@@ -1,0 +1,215 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ----------------------< com.ahd:trading_platform >----------------------
+[INFO] Building trading_platform 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ trading_platform ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 6 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ trading_platform ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] >>> spring-boot:3.4.4:run (default-cli) > test-compile @ trading_platform >>>
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ trading_platform ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 6 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ trading_platform ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ trading_platform ---
+[INFO] skip non existing resourceDirectory D:\work\trading_platform\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.13.0:testCompile (default-testCompile) @ trading_platform ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] <<< spring-boot:3.4.4:run (default-cli) < test-compile @ trading_platform <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot:3.4.4:run (default-cli) @ trading_platform ---
+[INFO] Attaching agents: []
+
+ ____                                 _         ____  _       _    __                      
+/ ___| __ _ _ __ ___  _   _ _ __   __| | __ _  |  _ \| | __ _| |_ / _| ___  _ __ _ __ ___  
+| |   / _` | '_ ` _ \| | | | '_ \ / _` |/ _` | | |_) | |/ _` | __| |_ / _ \| '__| '_ ` _ \ 
+| |__| (_| | | | | | | |_| | | | | (_| | (_| | |  __/| | (_| | |_|  _| (_) | |  | | | | | |
+\____/\__,_|_| |_| |_|\__,_|_| |_|\__,_|\__,_| |_|   |_|\__,_|\__|_|  \___/|_|  |_| |_| |_|
+
+  Spring-Boot:  (v3.4.4)
+  Camunda Platform: (v7.23.0)
+  Camunda Platform Spring Boot Starter: (v7.23.0)
+
+2025-09-05 21:38:27.132 [restartedMain] INFO  [c.a.t.TradingPlatformApplication] - Starting TradingPlatformApplication using Java 21.0.7 with PID 43552 (D:\work\trading_platform\target\classes started by nguye in D:\work\trading_platform)
+2025-09-05 21:38:27.137 [restartedMain] INFO  [c.a.t.TradingPlatformApplication] - No active profile set, falling back to 1 default profile: "default"
+2025-09-05 21:38:27.203 [restartedMain] INFO  [o.s.b.d.restart.ChangeableUrls] - The Class-Path manifest attribute in C:\Users\nguye\.m2\repository\com\sun\xml\bind\jaxb-impl\4.0.5\jaxb-impl-4.0.5.jar referenced one or more files that do not exist: file:/C:/Users/nguye/.m2/repository/com/sun/xml/bind/jaxb-impl/4.0.5/jaxb-core.jar,file:/C:/Users/nguye/.m2/repository/com/sun/xml/bind/jaxb-impl/4.0.5/angus-activation.jar
+2025-09-05 21:38:27.203 [restartedMain] INFO  [o.s.b.d.restart.ChangeableUrls] - The Class-Path manifest attribute in C:\Users\nguye\.m2\repository\com\sun\xml\bind\jaxb-core\4.0.5\jaxb-core-4.0.5.jar referenced one or more files that do not exist: file:/C:/Users/nguye/.m2/repository/com/sun/xml/bind/jaxb-core/4.0.5/jakarta.activation-api.jar,file:/C:/Users/nguye/.m2/repository/com/sun/xml/bind/jaxb-core/4.0.5/jakarta.xml.bind-api.jar
+2025-09-05 21:38:27.203 [restartedMain] INFO  [o.s.b.d.restart.ChangeableUrls] - The Class-Path manifest attribute in C:\Users\nguye\.m2\repository\org\glassfish\hk2\hk2\3.0.6\hk2-3.0.6.jar referenced one or more files that do not exist: file:/C:/Users/nguye/.m2/repository/org/glassfish/hk2/hk2/3.0.6/hk2-utils.jar,file:/C:/Users/nguye/.m2/repository/org/glassfish/hk2/hk2/3.0.6/jakarta.annotation-api.jar,file:/C:/Users/nguye/.m2/repository/org/glassfish/hk2/hk2/3.0.6/jakarta.inject-api.jar,file:/C:/Users/nguye/.m2/repository/org/glassfish/hk2/hk2/3.0.6/hk2-api.jar,file:/C:/Users/nguye/.m2/repository/org/glassfish/hk2/hk2/3.0.6/aopalliance-repackaged.jar,file:/C:/Users/nguye/.m2/repository/org/glassfish/hk2/hk2/3.0.6/hk2-core.jar,file:/C:/Users/nguye/.m2/repository/org/glassfish/hk2/hk2/3.0.6/hk2-locator.jar,file:/C:/Users/nguye/.m2/repository/org/glassfish/hk2/hk2/3.0.6/javassist.jar,file:/C:/Users/nguye/.m2/repository/org/glassfish/hk2/hk2/3.0.6/hk2-runlevel.jar,file:/C:/Users/nguye/.m2/repository/org/glassfish/hk2/hk2/3.0.6/class-model.jar,file:/C:/Users/nguye/.m2/repository/org/glassfish/hk2/hk2/3.0.6/asm.jar,file:/C:/Users/nguye/.m2/repository/org/glassfish/hk2/hk2/3.0.6/asm-analysis.jar,file:/C:/Users/nguye/.m2/repository/org/glassfish/hk2/hk2/3.0.6/asm-commons.jar,file:/C:/Users/nguye/.m2/repository/org/glassfish/hk2/hk2/3.0.6/asm-tree.jar,file:/C:/Users/nguye/.m2/repository/org/glassfish/hk2/hk2/3.0.6/asm-util.jar
+2025-09-05 21:38:27.203 [restartedMain] INFO  [o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor] - Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2025-09-05 21:38:27.203 [restartedMain] INFO  [o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor] - For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2025-09-05 21:38:27.228 [restartedMain] INFO  [o.s.b.d.c.l.DockerComposeLifecycleManager] - Using Docker Compose file D:\work\trading_platform\compose.yaml
+2025-09-05 21:38:28.482 [restartedMain] INFO  [o.s.b.d.c.l.DockerComposeLifecycleManager] - There are already Docker Compose services running, skipping startup
+2025-09-05 21:38:30.362 [restartedMain] DEBUG [o.s.c.o.FeignClientsRegistrar$1] - Identified candidate component class: file [D:\work\trading_platform\target\classes\com\ahd\trading_platform\marketdata\infrastructure\external\BybitFeignClient.class]
+2025-09-05 21:38:31.554 [restartedMain] INFO  [o.s.d.r.c.RepositoryConfigurationDelegate] - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2025-09-05 21:38:31.912 [restartedMain] INFO  [o.s.d.r.c.RepositoryConfigurationDelegate] - Finished Spring Data repository scanning in 337 ms. Found 5 JPA repository interfaces.
+2025-09-05 21:38:32.949 [restartedMain] INFO  [o.s.cloud.context.scope.GenericScope] - BeanFactory id=026a7caf-a4c2-3f99-8c6d-6f28604e8dd6
+2025-09-05 21:38:33.934 [SimpleAsyncTaskExecutor-1] INFO  [c.tngtech.archunit.core.PluginLoader] - Detected Java version 21.0.7
+2025-09-05 21:38:39.267 [restartedMain] INFO  [o.s.b.w.e.tomcat.TomcatWebServer] - Tomcat initialized with port 8080 (http)
+2025-09-05 21:38:39.295 [restartedMain] INFO  [o.a.catalina.core.StandardService] - Starting service [Tomcat]
+2025-09-05 21:38:39.296 [restartedMain] INFO  [o.a.catalina.core.StandardEngine] - Starting Servlet engine: [Apache Tomcat/10.1.39]
+2025-09-05 21:38:39.436 [restartedMain] INFO  [o.a.c.c.C.[Tomcat].[localhost].[/]] - Initializing Spring embedded WebApplicationContext
+2025-09-05 21:38:39.436 [restartedMain] INFO  [o.s.b.w.s.c.ServletWebServerApplicationContext] - Root WebApplicationContext: initialization completed in 10935 ms
+2025-09-05 21:38:39.497 [restartedMain] INFO  [o.c.b.s.b.s.r.CamundaJerseyResourceConfig] - Configuring camunda rest api.
+2025-09-05 21:38:39.540 [restartedMain] INFO  [o.c.b.s.b.s.r.CamundaJerseyResourceConfig] - Finished configuring camunda rest api.
+2025-09-05 21:38:41.142 [restartedMain] INFO  [com.zaxxer.hikari.HikariDataSource] - HikariPool-1 - Starting...
+2025-09-05 21:38:41.450 [restartedMain] INFO  [com.zaxxer.hikari.pool.HikariPool] - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@d96a155
+2025-09-05 21:38:41.454 [restartedMain] INFO  [com.zaxxer.hikari.HikariDataSource] - HikariPool-1 - Start completed.
+2025-09-05 21:38:41.754 [restartedMain] INFO  [o.h.jpa.internal.util.LogHelper] - HHH000204: Processing PersistenceUnitInfo [name: default]
+2025-09-05 21:38:41.866 [restartedMain] INFO  [org.hibernate.Version] - HHH000412: Hibernate ORM core version 6.6.11.Final
+2025-09-05 21:38:41.942 [restartedMain] INFO  [o.h.c.i.RegionFactoryInitiator] - HHH000026: Second-level cache disabled
+2025-09-05 21:38:42.487 [restartedMain] INFO  [o.s.o.j.p.SpringPersistenceUnitInfo] - No LoadTimeWeaver setup: ignoring JPA class transformer
+2025-09-05 21:38:42.596 [restartedMain] WARN  [org.hibernate.orm.deprecation] - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2025-09-05 21:38:42.635 [restartedMain] INFO  [o.hibernate.orm.connections.pooling] - HHH10001005: Database info:
+	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+	Database driver: undefined/unknown
+	Database version: 17.5
+	Autocommit mode: undefined/unknown
+	Isolation level: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2025-09-05 21:38:44.880 [restartedMain] INFO  [o.h.e.t.j.p.i.JtaPlatformInitiator] - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2025-09-05 21:38:45.082 [restartedMain] INFO  [o.s.o.j.LocalContainerEntityManagerFactoryBean] - Initialized JPA EntityManagerFactory for persistence unit 'default'
+2025-09-05 21:38:45.957 [restartedMain] INFO  [o.s.d.j.r.query.QueryEnhancerFactory] - Hibernate is in classpath; If applicable, HQL parser will be used.
+2025-09-05 21:38:48.387 [restartedMain] INFO  [c.a.t.m.i.p.r.AssetSpecificRepositoryFactory] - Initialized asset-specific repository factory with 2 repositories: [BTC, ETH]
+2025-09-05 21:38:48.506 [restartedMain] DEBUG [o.s.c.o.FeignClientFactoryBean] - Creating a FeignClientFactoryBean.
+2025-09-05 21:38:48.908 [restartedMain] INFO  [org.camunda.bpm.spring.boot] - STARTER-SB040 Setting up jobExecutor with corePoolSize=3, maxPoolSize:10
+2025-09-05 21:38:49.534 [restartedMain] INFO  [org.camunda.bpm.engine.cfg] - ENGINE-12003 Plugin 'CompositeProcessEnginePlugin[genericPropertiesConfiguration, camundaProcessEngineConfiguration, camundaDatasourceConfiguration, camundaJobConfiguration, camundaHistoryConfiguration, camundaMetricsConfiguration, camundaAuthorizationConfiguration, createAdminUserConfiguration, failedJobConfiguration, CreateFilterConfiguration[filterName=All tasks], disableDeploymentResourcePattern, eventPublisherPlugin, ApplicationContextClassloaderSwitchPlugin, SpringBootSpinProcessEnginePlugin]' activated on process engine 'default'
+2025-09-05 21:38:49.543 [restartedMain] INFO  [org.camunda.bpm.spring.boot] - STARTER-SB020 ProcessApplication enabled: autoDeployment via springConfiguration#deploymentResourcePattern is disabled
+2025-09-05 21:38:49.545 [restartedMain] INFO  [o.c.b.s.b.s.e.EventPublisherPlugin] - EVENTING-001: Initialized Camunda Spring Boot Eventing Engine Plugin.
+2025-09-05 21:38:49.545 [restartedMain] INFO  [o.c.b.s.b.s.e.EventPublisherPlugin] - EVENTING-003: Task events will be published as Spring Events.
+2025-09-05 21:38:49.545 [restartedMain] INFO  [o.c.b.s.b.s.e.EventPublisherPlugin] - EVENTING-005: Execution events will be published as Spring Events.
+2025-09-05 21:38:49.545 [restartedMain] INFO  [o.c.b.s.b.s.e.EventPublisherPlugin] - EVENTING-009: Listeners will not be invoked if a skipCustomListeners API parameter is set to true by user.
+2025-09-05 21:38:49.559 [restartedMain] INFO  [o.c.b.s.b.s.e.EventPublisherPlugin] - EVENTING-007: History events will be published as Spring events.
+2025-09-05 21:38:49.567 [restartedMain] INFO  [org.camunda.spin] - SPIN-01010 Discovered Spin data format provider: org.camunda.spin.impl.json.jackson.format.JacksonJsonDataFormatProvider[name = application/json]
+2025-09-05 21:38:49.936 [restartedMain] INFO  [org.camunda.spin] - SPIN-01010 Discovered Spin data format provider: org.camunda.spin.impl.xml.dom.format.DomXmlDataFormatProvider[name = application/xml]
+2025-09-05 21:38:50.127 [restartedMain] INFO  [org.camunda.spin] - SPIN-01009 Discovered Spin data format: org.camunda.spin.impl.xml.dom.format.DomXmlDataFormat[name = application/xml]
+2025-09-05 21:38:50.128 [restartedMain] INFO  [org.camunda.spin] - SPIN-01009 Discovered Spin data format: org.camunda.spin.impl.json.jackson.format.JacksonJsonDataFormat[name = application/json]
+2025-09-05 21:38:50.376 [restartedMain] INFO  [org.camunda.bpm.dmn.feel.scala] - FEEL/SCALA-01001 Spin value mapper detected
+2025-09-05 21:38:54.889 [restartedMain] INFO  [org.camunda.bpm.engine] - ENGINE-00001 Process Engine default created.
+2025-09-05 21:38:54.983 [restartedMain] INFO  [org.camunda.bpm.spring.boot] - STARTER-SB016 Skip initial filter creation, the filter with this name already exists: All tasks
+2025-09-05 21:38:55.128 [restartedMain] WARN  [o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration] - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-09-05 21:38:55.606 [restartedMain] WARN  [o.s.b.d.a.OptionalLiveReloadServer] - Unable to start LiveReload server
+2025-09-05 21:38:58.593 [restartedMain] INFO  [o.c.b.s.b.s.w.f.LazyInitRegistration] - lazy initialized org.camunda.bpm.spring.boot.starter.webapp.filter.LazySecurityFilter@3f4ad838
+2025-09-05 21:38:58.595 [restartedMain] INFO  [o.c.b.s.b.s.w.f.LazyInitRegistration] - lazy initialized org.camunda.bpm.spring.boot.starter.webapp.filter.LazyProcessEnginesFilter@6674e513
+2025-09-05 21:39:01.306 [restartedMain] INFO  [o.s.b.a.e.web.EndpointLinksResolver] - Exposing 4 endpoints beneath base path '/actuator'
+2025-09-05 21:39:01.691 [restartedMain] INFO  [org.camunda.bpm.client] - TASK/CLIENT-01026 Discovered data format provider: org.camunda.bpm.client.variable.impl.format.json.JacksonJsonDataFormatProvider[name = application/json]
+2025-09-05 21:39:01.696 [restartedMain] INFO  [org.camunda.bpm.client] - TASK/CLIENT-01025 Discovered data format: org.camunda.bpm.client.variable.impl.format.json.JacksonJsonDataFormat[name = application/json]
+2025-09-05 21:39:01.697 [restartedMain] INFO  [org.camunda.bpm.client] - TASK/CLIENT-01026 Discovered data format provider: org.camunda.bpm.client.variable.impl.format.serializable.SerializableDataFormatProvider[name = application/x-java-serialized-object]
+2025-09-05 21:39:01.698 [restartedMain] INFO  [org.camunda.bpm.client] - TASK/CLIENT-01025 Discovered data format: org.camunda.bpm.client.variable.impl.format.serializable.SerializableDataFormat[name = application/x-java-serialized-object]
+2025-09-05 21:39:01.699 [restartedMain] INFO  [org.camunda.bpm.client] - TASK/CLIENT-01026 Discovered data format provider: org.camunda.bpm.client.variable.impl.format.xml.DomXmlDataFormatProvider[name = application/xml]
+2025-09-05 21:39:01.702 [restartedMain] INFO  [org.camunda.bpm.client] - TASK/CLIENT-01025 Discovered data format: org.camunda.bpm.client.variable.impl.format.xml.DomXmlDataFormat[name = application/xml]
+2025-09-05 21:39:02.052 [restartedMain] WARN  [o.s.b.w.s.c.AnnotationConfigServletWebServerApplicationContext] - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.context.ApplicationContextException: Failed to start bean 'webServerStartStop'
+2025-09-05 21:39:02.162 [restartedMain] DEBUG [org.hibernate.SQL] - 
+    /* select
+        p 
+    from
+        JpaEventPublication p 
+    where
+        p.completionDate is null 
+    order by
+        p.publicationDate asc  */ select
+            jep1_0.id,
+            jep1_0.completion_date,
+            jep1_0.event_type,
+            jep1_0.listener_id,
+            jep1_0.publication_date,
+            jep1_0.serialized_event 
+        from
+            event_publication jep1_0 
+        where
+            jep1_0.completion_date is null 
+        order by
+            jep1_0.publication_date
+2025-09-05 21:39:02.208 [restartedMain] INFO  [o.s.m.e.c.DefaultEventPublicationRegistry] - No publications outstanding!
+2025-09-05 21:39:02.258 [restartedMain] INFO  [org.camunda.bpm.engine] - ENGINE-00007 Process Engine default closed
+2025-09-05 21:39:02.266 [restartedMain] INFO  [o.s.o.j.LocalContainerEntityManagerFactoryBean] - Closing JPA EntityManagerFactory for persistence unit 'default'
+2025-09-05 21:39:02.274 [restartedMain] INFO  [com.zaxxer.hikari.HikariDataSource] - HikariPool-1 - Shutdown initiated...
+2025-09-05 21:39:02.280 [restartedMain] INFO  [com.zaxxer.hikari.HikariDataSource] - HikariPool-1 - Shutdown completed.
+2025-09-05 21:39:02.328 [restartedMain] INFO  [o.s.b.a.l.ConditionEvaluationReportLogger] - 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2025-09-05 21:39:02.329 [restartedMain] WARN  [o.s.b.c.e.EventPublishingRunListener] - Error calling ApplicationEventListener
+java.lang.IllegalStateException: org.springframework.boot.web.servlet.context.AnnotationConfigServletWebServerApplicationContext@17f839cb has not been refreshed yet
+	at org.springframework.context.support.AbstractApplicationContext.assertBeanFactoryActive(AbstractApplicationContext.java:1259)
+	at org.springframework.context.support.AbstractApplicationContext.getBean(AbstractApplicationContext.java:1271)
+	at org.springframework.context.event.ApplicationListenerMethodAdapter.getTargetBean(ApplicationListenerMethodAdapter.java:409)
+	at org.springframework.context.event.ApplicationListenerMethodAdapter.doInvoke(ApplicationListenerMethodAdapter.java:371)
+	at org.springframework.context.event.ApplicationListenerMethodAdapter.processEvent(ApplicationListenerMethodAdapter.java:254)
+	at org.springframework.context.event.ApplicationListenerMethodAdapter.onApplicationEvent(ApplicationListenerMethodAdapter.java:173)
+	at org.springframework.context.event.SimpleApplicationEventMulticaster.doInvokeListener(SimpleApplicationEventMulticaster.java:185)
+	at org.springframework.context.event.SimpleApplicationEventMulticaster.invokeListener(SimpleApplicationEventMulticaster.java:171)
+	at org.springframework.context.event.SimpleApplicationEventMulticaster.multicastEvent(SimpleApplicationEventMulticaster.java:156)
+	at org.springframework.context.event.SimpleApplicationEventMulticaster.multicastEvent(SimpleApplicationEventMulticaster.java:138)
+	at org.springframework.boot.context.event.EventPublishingRunListener.failed(EventPublishingRunListener.java:130)
+	at org.springframework.boot.SpringApplicationRunListeners.callFailedListener(SpringApplicationRunListeners.java:94)
+	at org.springframework.boot.SpringApplicationRunListeners.lambda$failed$7(SpringApplicationRunListeners.java:85)
+	at java.base/java.lang.Iterable.forEach(Iterable.java:75)
+	at org.springframework.boot.SpringApplicationRunListeners.doWithListeners(SpringApplicationRunListeners.java:118)
+	at org.springframework.boot.SpringApplicationRunListeners.failed(SpringApplicationRunListeners.java:84)
+	at org.springframework.boot.SpringApplication.handleRunFailure(SpringApplication.java:808)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:328)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1361)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1350)
+	at com.ahd.trading_platform.TradingPlatformApplication.main(TradingPlatformApplication.java:14)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.boot.devtools.restart.RestartLauncher.run(RestartLauncher.java:50)
+2025-09-05 21:39:02.337 [restartedMain] WARN  [o.s.b.c.e.EventPublishingRunListener] - Error calling ApplicationEventListener
+java.lang.IllegalStateException: org.springframework.boot.web.servlet.context.AnnotationConfigServletWebServerApplicationContext@17f839cb has not been refreshed yet
+	at org.springframework.context.support.AbstractApplicationContext.assertBeanFactoryActive(AbstractApplicationContext.java:1259)
+	at org.springframework.context.support.AbstractApplicationContext.getBean(AbstractApplicationContext.java:1271)
+	at org.springframework.context.event.ApplicationListenerMethodAdapter.getTargetBean(ApplicationListenerMethodAdapter.java:409)
+	at org.springframework.context.event.ApplicationListenerMethodAdapter.doInvoke(ApplicationListenerMethodAdapter.java:371)
+	at org.springframework.context.event.ApplicationListenerMethodAdapter.processEvent(ApplicationListenerMethodAdapter.java:254)
+	at org.springframework.context.event.ApplicationListenerMethodAdapter.onApplicationEvent(ApplicationListenerMethodAdapter.java:173)
+	at org.springframework.context.event.SimpleApplicationEventMulticaster.doInvokeListener(SimpleApplicationEventMulticaster.java:185)
+	at org.springframework.context.event.SimpleApplicationEventMulticaster.invokeListener(SimpleApplicationEventMulticaster.java:171)
+	at org.springframework.context.event.SimpleApplicationEventMulticaster.multicastEvent(SimpleApplicationEventMulticaster.java:156)
+	at org.springframework.context.event.SimpleApplicationEventMulticaster.multicastEvent(SimpleApplicationEventMulticaster.java:138)
+	at org.springframework.boot.context.event.EventPublishingRunListener.failed(EventPublishingRunListener.java:130)
+	at org.springframework.boot.SpringApplicationRunListeners.callFailedListener(SpringApplicationRunListeners.java:94)
+	at org.springframework.boot.SpringApplicationRunListeners.lambda$failed$7(SpringApplicationRunListeners.java:85)
+	at java.base/java.lang.Iterable.forEach(Iterable.java:75)
+	at org.springframework.boot.SpringApplicationRunListeners.doWithListeners(SpringApplicationRunListeners.java:118)
+	at org.springframework.boot.SpringApplicationRunListeners.failed(SpringApplicationRunListeners.java:84)
+	at org.springframework.boot.SpringApplication.handleRunFailure(SpringApplication.java:808)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:328)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1361)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1350)
+	at com.ahd.trading_platform.TradingPlatformApplication.main(TradingPlatformApplication.java:14)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.boot.devtools.restart.RestartLauncher.run(RestartLauncher.java:50)
+2025-09-05 21:39:02.382 [restartedMain] ERROR [o.s.b.d.LoggingFailureAnalysisReporter] - 
+
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Web server failed to start. Port 8080 was already in use.
+
+Action:
+
+Identify and stop the process that's listening on port 8080 or configure this application to listen on another port.
+
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  42.885 s
+[INFO] Finished at: 2025-09-05T21:39:02+07:00
+[INFO] ------------------------------------------------------------------------

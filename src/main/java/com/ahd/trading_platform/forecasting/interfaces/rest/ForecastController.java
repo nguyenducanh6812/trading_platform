@@ -3,7 +3,7 @@ package com.ahd.trading_platform.forecasting.interfaces.rest;
 import com.ahd.trading_platform.forecasting.application.dto.ForecastRequest;
 import com.ahd.trading_platform.forecasting.application.dto.ForecastResponse;
 import com.ahd.trading_platform.forecasting.application.usecases.ExecuteARIMAForecastUseCase;
-import com.ahd.trading_platform.forecasting.infrastructure.repositories.ARIMAMasterDataLoader;
+import com.ahd.trading_platform.forecasting.infrastructure.repositories.ARIMAModelRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -33,7 +33,7 @@ import java.util.Map;
 public class ForecastController {
     
     private final ExecuteARIMAForecastUseCase executeARIMAForecastUseCase;
-    private final ARIMAMasterDataLoader arimaMasterDataLoader;
+    private final ARIMAModelRepository arimaModelRepository;
     
     @Operation(
         summary = "Execute ARIMA forecast",
@@ -111,8 +111,8 @@ public class ForecastController {
         
         log.info("Received simple ARIMA forecast request for instrument: {}", instrumentCode);
         
-        // Create simple request with default parameters
-        ForecastRequest request = ForecastRequest.simple(instrumentCode.toUpperCase());
+        // Create simple current date forecast request
+        ForecastRequest request = ForecastRequest.forCurrentDate(instrumentCode.toUpperCase());
         return executeForecast(request);
     }
     
@@ -127,7 +127,7 @@ public class ForecastController {
             "status", "UP",
             "service", "ARIMA Forecasting Service",
             "timestamp", System.currentTimeMillis(),
-            "models", arimaMasterDataLoader.getCacheStatistics()
+            "models", ((com.ahd.trading_platform.forecasting.infrastructure.repositories.ARIMAMasterDataLoader) arimaModelRepository).getCacheStatistics()
         );
         
         return ResponseEntity.ok(health);
@@ -140,7 +140,7 @@ public class ForecastController {
     @ApiResponse(responseCode = "200", description = "Model statistics retrieved successfully")
     @GetMapping("/models/statistics")
     public ResponseEntity<Map<String, Object>> getModelStatistics() {
-        Map<String, Object> stats = arimaMasterDataLoader.getCacheStatistics();
+        Map<String, Object> stats = ((com.ahd.trading_platform.forecasting.infrastructure.repositories.ARIMAMasterDataLoader) arimaModelRepository).getCacheStatistics();
         return ResponseEntity.ok(stats);
     }
     
@@ -157,13 +157,13 @@ public class ForecastController {
         log.info("Received request to reload ARIMA master data");
         
         try {
-            arimaMasterDataLoader.reloadAllModels();
+            ((com.ahd.trading_platform.forecasting.infrastructure.repositories.ARIMAMasterDataLoader) arimaModelRepository).reloadAllModels();
             
             Map<String, Object> response = Map.of(
                 "status", "SUCCESS",
                 "message", "ARIMA models reloaded successfully",
                 "timestamp", System.currentTimeMillis(),
-                "models", arimaMasterDataLoader.getCacheStatistics()
+                "models", ((com.ahd.trading_platform.forecasting.infrastructure.repositories.ARIMAMasterDataLoader) arimaModelRepository).getCacheStatistics()
             );
             
             log.info("ARIMA master data reloaded successfully");

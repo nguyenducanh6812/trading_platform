@@ -1,7 +1,8 @@
 package com.ahd.trading_platform.marketdata.infrastructure.persistence.entities;
 
 import jakarta.persistence.*;
-import com.ahd.trading_platform.marketdata.domain.valueobjects.AuditInfo;
+import com.ahd.trading_platform.shared.valueobjects.*;
+import com.ahd.trading_platform.marketdata.domain.valueobjects.*;
 import lombok.*;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 

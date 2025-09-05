@@ -12,7 +12,12 @@
       "WebSearch",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:docs.camunda.org)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(rm:*)",
+      "Bash(sed:*)",
+      "Bash(docker compose:*)",
+      "Bash(taskkill:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

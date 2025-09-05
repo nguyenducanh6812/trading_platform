@@ -1,7 +1,7 @@
 package com.ahd.trading_platform.marketdata.infrastructure.mappers;
 
-import com.ahd.trading_platform.marketdata.domain.valueobjects.OHLCV;
-import com.ahd.trading_platform.marketdata.domain.valueobjects.Price;
+import com.ahd.trading_platform.shared.valueobjects.OHLCV;
+import com.ahd.trading_platform.shared.valueobjects.Price;
 import com.ahd.trading_platform.marketdata.infrastructure.external.dto.bybit.BybitKlineResponse;
 import com.ahd.trading_platform.marketdata.infrastructure.external.dto.bybit.BybitTickerResponse;
 import org.mapstruct.Mapper;

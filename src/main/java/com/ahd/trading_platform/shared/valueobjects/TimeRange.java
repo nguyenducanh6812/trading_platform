@@ -1,4 +1,6 @@
-package com.ahd.trading_platform.marketdata.domain.valueobjects;
+package com.ahd.trading_platform.shared.valueobjects;
+
+import org.springframework.modulith.NamedInterface;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -10,6 +12,7 @@ import java.util.Objects;
  * TimeRange value object representing a period between two time points.
  * Handles validation and provides utility methods for time-based operations.
  */
+@NamedInterface
 public record TimeRange(Instant from, Instant to) {
     
     public TimeRange {

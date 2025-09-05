@@ -1,1 +1,0 @@
-This module implement feature forcasting the expected return of today.

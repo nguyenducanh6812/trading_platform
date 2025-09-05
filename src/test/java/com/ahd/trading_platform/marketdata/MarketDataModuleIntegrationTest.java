@@ -3,8 +3,8 @@ package com.ahd.trading_platform.marketdata;
 import com.ahd.trading_platform.marketdata.application.services.MarketDataApplicationService;
 import com.ahd.trading_platform.marketdata.domain.entities.MarketInstrument;
 import com.ahd.trading_platform.marketdata.domain.repositories.MarketDataRepository;
-import com.ahd.trading_platform.marketdata.domain.valueobjects.OHLCV;
-import com.ahd.trading_platform.marketdata.domain.valueobjects.Price;
+import com.ahd.trading_platform.shared.valueobjects.OHLCV;
+import com.ahd.trading_platform.shared.valueobjects.Price;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -1,7 +1,7 @@
 package com.ahd.trading_platform.marketdata.infrastructure.external;
 
-import com.ahd.trading_platform.marketdata.domain.valueobjects.OHLCV;
-import com.ahd.trading_platform.marketdata.domain.valueobjects.TimeRange;
+import com.ahd.trading_platform.shared.valueobjects.OHLCV;
+import com.ahd.trading_platform.shared.valueobjects.TimeRange;
 
 import java.util.List;
 

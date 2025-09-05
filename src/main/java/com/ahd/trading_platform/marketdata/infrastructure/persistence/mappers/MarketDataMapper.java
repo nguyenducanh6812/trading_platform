@@ -1,6 +1,7 @@
 package com.ahd.trading_platform.marketdata.infrastructure.persistence.mappers;
 
 import com.ahd.trading_platform.marketdata.domain.entities.MarketInstrument;
+import com.ahd.trading_platform.shared.valueobjects.*;
 import com.ahd.trading_platform.marketdata.domain.valueobjects.*;
 import com.ahd.trading_platform.marketdata.infrastructure.persistence.entities.*;
 

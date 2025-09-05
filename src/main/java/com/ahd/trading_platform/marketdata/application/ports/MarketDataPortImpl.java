@@ -1,8 +1,8 @@
 package com.ahd.trading_platform.marketdata.application.ports;
 
-import com.ahd.trading_platform.marketdata.domain.valueobjects.OHLCV;
-import com.ahd.trading_platform.marketdata.domain.valueobjects.TimeRange;
-import com.ahd.trading_platform.marketdata.domain.valueobjects.TradingInstrument;
+import com.ahd.trading_platform.shared.valueobjects.OHLCV;
+import com.ahd.trading_platform.shared.valueobjects.TimeRange;
+import com.ahd.trading_platform.shared.valueobjects.TradingInstrument;
 import com.ahd.trading_platform.marketdata.domain.repositories.MarketDataRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

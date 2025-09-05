@@ -1,6 +1,8 @@
 package com.ahd.trading_platform.marketdata.domain.entities;
 
+import com.ahd.trading_platform.shared.valueobjects.*;
 import com.ahd.trading_platform.marketdata.domain.valueobjects.*;
+import com.ahd.trading_platform.marketdata.domain.valueobjects.DataQualityMetrics;
 import com.ahd.trading_platform.marketdata.domain.events.MarketDataUpdatedEvent;
 import lombok.*;
 

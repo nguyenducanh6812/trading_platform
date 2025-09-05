@@ -305,6 +305,7 @@ camunda:
 9. **Pragmatic Constants**: Use constants only for truly shared values. Worker-specific values like topic names and lock durations should remain inline for better readability. Only centralize process variables that are reused across multiple workers or components.
 10. **Rate Limiting**: Use Resilience4j for professional rate limiting instead of Thread.sleep
 11. **Database Configuration Consistency**: Ensure `application.yaml` and `compose.yaml` database settings match exactly
+12. **Spring Modulith Named Interfaces**: Use `@NamedInterface` annotation on both package-info.java and individual classes/enums to expose types across modules. Both the module package and the specific type need the annotation for proper cross-module access.
 
 ## Trading Model Overview
 
