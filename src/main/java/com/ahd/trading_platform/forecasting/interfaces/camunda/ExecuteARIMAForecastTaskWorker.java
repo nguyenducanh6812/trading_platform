@@ -1,9 +1,7 @@
 package com.ahd.trading_platform.forecasting.interfaces.camunda;
 
-import com.ahd.trading_platform.forecasting.application.dto.ForecastRequest;
-import com.ahd.trading_platform.forecasting.application.dto.ForecastResponse;
+import com.ahd.trading_platform.forecasting.application.dto.BatchForecastOrchestrationResponse;
 import com.ahd.trading_platform.forecasting.application.usecases.ExecuteARIMAForecastUseCase;
-import com.ahd.trading_platform.forecasting.application.services.ForecastResultPersistenceService;
 import com.ahd.trading_platform.shared.valueobjects.TradingInstrument;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,7 +21,18 @@ import static com.ahd.trading_platform.forecasting.interfaces.camunda.ForecastPr
 
 /**
  * Camunda external task worker for executing ARIMA forecasts.
- * Follows the thin orchestration layer pattern - delegates business logic to domain use cases.
+ * 
+ * Architecture:
+ * - Thin orchestration layer following DDD best practices
+ * - Extracts input data from process variables
+ * - Delegates ALL business logic to domain use cases/services
+ * - Handles BPMN errors appropriately
+ * - Returns only process flow variables (no business data)
+ * 
+ * Does NOT:
+ * - Handle business logic (loops, error analysis, etc.)
+ * - Process business data
+ * - Make business decisions
  */
 @Component
 @ExternalTaskSubscription(
@@ -38,63 +47,45 @@ public class ExecuteARIMAForecastTaskWorker implements ExternalTaskHandler {
     
     private final ExecuteARIMAForecastUseCase executeARIMAForecastUseCase;
     private final ObjectMapper objectMapper;
-    private final ForecastResultPersistenceService persistenceService;
     
     @Override
     public void execute(ExternalTask externalTask, ExternalTaskService externalTaskService) {
         String taskId = externalTask.getId();
         String processInstanceId = externalTask.getProcessInstanceId();
         
-        log.info("Starting ARIMA forecast task execution: taskId={}, processInstanceId={}", taskId, processInstanceId);
+        log.info("Starting ARIMA forecast orchestration: taskId={}, processInstanceId={}", taskId, processInstanceId);
         
         try {
-            // Extract orchestration input
+            // Extract orchestration input from process variables
             OrchestrationInput input = extractOrchestrationInput(externalTask);
             
-            // Execute forecasts for all requested instruments
-            Map<String, Boolean> forecastSuccess = new HashMap<>();
-            Map<String, String> forecastErrors = new HashMap<>();
-            int successfulForecasts = 0;
+            // Delegate business logic to use case (returns orchestration data only)
+            BatchForecastOrchestrationResponse batchResult =
+                executeBatchForecasts(input);
             
-            for (TradingInstrument instrument : input.instrumentCodes()) {
-                // Create forecast request for this instrument
-                ForecastRequest request = new ForecastRequest(
-                    instrument.getCode(),
-                    input.startDate(),
-                    input.endDate(),
-                    input.isCurrentDate(),
-                    input.includeCalculationDetails()
-                );
-                
-                // Execute forecast using domain use case
-                ForecastResponse response = executeARIMAForecastUseCase.execute(request, input.arimaModelVersion());
-                
-                // Collect orchestration results only (no business data)
-                if (response.isSuccessful()) {
-                    forecastSuccess.put(instrument.getCode(), true);
-                    successfulForecasts++;
-                } else {
-                    forecastSuccess.put(instrument.getCode(), false);
-                    forecastErrors.put(instrument.getCode(), response.errorMessage());
-                }
+            // Handle critical errors with BPMN error
+            if (batchResult.hasCriticalErrors()) {
+                log.error("ARIMA forecast failed due to critical errors: taskId={}, errors={}", 
+                    taskId, batchResult.criticalErrorMessage());
+                externalTaskService.handleBpmnError(externalTask, "ARIMA_CRITICAL_ERROR", batchResult.criticalErrorMessage());
+                return;
             }
             
-            // Create orchestration output (no business data)
-            Map<String, Object> orchestrationOutput = createOrchestrationOutput(
-                input, forecastSuccess, forecastErrors, successfulForecasts, input.arimaModelVersion());
+            // Create orchestration output (process variables only)
+            Map<String, Object> orchestrationOutput = createOrchestrationOutput(input, batchResult);
             
             // Complete task with orchestration data only
             externalTaskService.complete(externalTask, orchestrationOutput);
             
-            log.info("ARIMA forecast task completed successfully: taskId={}, instruments={}", 
-                taskId, input.instrumentCodes().size());
+            log.info("ARIMA forecast orchestration completed: taskId={}, successful={}/{}", 
+                taskId, batchResult.successfulForecasts(), batchResult.totalInstruments());
                 
         } catch (InvalidProcessVariablesException e) {
-            log.error("ARIMA forecast task failed due to invalid process variables: taskId={}, error={}", taskId, e.getMessage());
+            log.error("Invalid process variables: taskId={}, error={}", taskId, e.getMessage());
             externalTaskService.handleBpmnError(externalTask, "INVALID_PROCESS_VARIABLES", e.getMessage());
             
         } catch (Exception e) {
-            log.error("ARIMA forecast task failed unexpectedly: taskId={}, error={}", taskId, e.getMessage(), e);
+            log.error("Technical failure in ARIMA forecast orchestration: taskId={}", taskId, e);
             
             int retries = externalTask.getRetries() != null ? externalTask.getRetries() - 1 : 2;
             externalTaskService.handleFailure(externalTask, e.getMessage(), e.toString(), retries, 60000L);
@@ -120,9 +111,9 @@ public class ExecuteARIMAForecastTaskWorker implements ExternalTaskHandler {
             if (isCurrentDate == null) isCurrentDate = Boolean.TRUE;  // Default to current date mode
             if (includeCalculationDetails == null) includeCalculationDetails = Boolean.FALSE;
             if (arimaModelVersion == null) {
-                // For current date mode, use current date as model version; for backtesting, it's required
+                // For current date mode, use default model version; for backtesting, it's required
                 if (isCurrentDate) {
-                    arimaModelVersion = persistenceService.getCurrentArimaModelVersion();
+                    arimaModelVersion = "20250904"; // Default current model version
                 } else {
                     throw new InvalidProcessVariablesException(
                         "arimaModelVersion is required for backtesting mode (isCurrentDate=false)");
@@ -180,34 +171,53 @@ public class ExecuteARIMAForecastTaskWorker implements ExternalTaskHandler {
         return objectMapper.readValue(jsonString, typeRef);
     }
     
+    /**
+     * Executes batch forecasts by delegating to use case.
+     * Returns orchestration response without business data.
+     */
+    private BatchForecastOrchestrationResponse executeBatchForecasts(OrchestrationInput input) {
+        // Extract instrument codes as strings
+        List<String> instrumentCodes = input.instrumentCodes().stream()
+            .map(TradingInstrument::getCode)
+            .toList();
+        
+        // Delegate batch processing to use case (all business logic handled there)
+        return executeARIMAForecastUseCase.executeBatch(
+            instrumentCodes,
+            input.startDate(),
+            input.endDate(),
+            input.isCurrentDate(),
+            input.includeCalculationDetails(),
+            input.arimaModelVersion()
+        );
+    }
+    
+    
     private Map<String, Object> createOrchestrationOutput(
             OrchestrationInput input, 
-            Map<String, Boolean> forecastSuccess,
-            Map<String, String> forecastErrors,
-            int successfulForecasts,
-            String arimaModelVersion) {
+            com.ahd.trading_platform.forecasting.application.dto.BatchForecastOrchestrationResponse batchResult) {
         
         Map<String, Object> variables = new HashMap<>();
         
         // Orchestration metadata
-        variables.put(EXECUTION_ID, java.util.UUID.randomUUID().toString());
+        variables.put(EXECUTION_ID, batchResult.executionId());
         variables.put(TASK_COMPLETED, true);
         variables.put(COMPLETED_AT, System.currentTimeMillis());
         
-        // Summary data for next steps (no detailed business data)
-        variables.put("successfulForecasts", successfulForecasts);
-        variables.put("totalInstruments", input.instrumentCodes().size());
-        variables.put("arimaModelVersion", arimaModelVersion);
+        // Summary data for next steps (no detailed business data like expectedReturn values)
+        variables.put("successfulForecasts", batchResult.successfulForecasts());
+        variables.put("totalInstruments", batchResult.totalInstruments());
+        variables.put("arimaModelVersion", batchResult.arimaModelVersion());
         
         // Error information if any failures occurred
-        if (!forecastErrors.isEmpty()) {
-            variables.put(ERROR_MESSAGE, String.join("; ", forecastErrors.values()));
-            variables.put("failedInstruments", forecastErrors.keySet());
+        if (!batchResult.failedInstruments().isEmpty()) {
+            variables.put(ERROR_MESSAGE, String.join("; ", batchResult.failedInstruments().values()));
+            variables.put("failedInstruments", batchResult.failedInstruments().keySet());
         }
         
         // Success indicators
-        variables.put("allForecastsSuccessful", forecastErrors.isEmpty());
-        variables.put("hasPartialFailures", !forecastErrors.isEmpty() && successfulForecasts > 0);
+        variables.put("allForecastsSuccessful", batchResult.failedInstruments().isEmpty());
+        variables.put("hasPartialFailures", !batchResult.failedInstruments().isEmpty() && batchResult.successfulForecasts() > 0);
         
         return variables;
     }
@@ -223,6 +233,7 @@ public class ExecuteARIMAForecastTaskWorker implements ExternalTaskHandler {
         Boolean includeCalculationDetails,
         String arimaModelVersion
     ) {}
+    
     
     /**
      * Exception for invalid process variables

@@ -17,7 +17,11 @@
       "Bash(sed:*)",
       "Bash(docker compose:*)",
       "Bash(taskkill:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(netstat:*)",
+      "Bash(docker exec:*)",
+      "Bash(wmic process where processid=32908 delete:*)",
+      "Bash(wmic process where processid=36256 delete:*)"
     ],
     "deny": [],
     "ask": []

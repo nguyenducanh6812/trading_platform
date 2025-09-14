@@ -38,7 +38,7 @@ public record DemeanDiffOCMasterData(
             BigDecimal meanDiffOC,
             String calculationVersion) {
         
-        BigDecimal oc = openPrice.subtract(closePrice);
+        BigDecimal oc = closePrice.subtract(openPrice);
         
         return new DemeanDiffOCMasterData(
             instrument, timestamp, openPrice, closePrice, oc,
@@ -59,7 +59,7 @@ public record DemeanDiffOCMasterData(
             BigDecimal meanDiffOC,
             String calculationVersion) {
         
-        BigDecimal oc = openPrice.subtract(closePrice);
+        BigDecimal oc = closePrice.subtract(openPrice);
         BigDecimal diffOC = oc.subtract(previousOC);
         BigDecimal demeanDiffOC = diffOC.subtract(meanDiffOC);
         
@@ -124,5 +124,20 @@ public record DemeanDiffOCMasterData(
      */
     public double closePriceAsDouble() {
         return closePrice.doubleValue();
+    }
+    
+    /**
+     * Creates a copy with recalculated differences
+     * Used when updating master data with fresh calculations from price data
+     */
+    public DemeanDiffOCMasterData withRecalculatedDifferences(
+            BigDecimal newOC, 
+            BigDecimal newDiffOC, 
+            BigDecimal newDemeanDiffOC) {
+        return new DemeanDiffOCMasterData(
+            instrument, timestamp, openPrice, closePrice, 
+            newOC, newDiffOC, newDemeanDiffOC, 
+            meanDiffOC, calculationVersion, Instant.now()
+        );
     }
 }

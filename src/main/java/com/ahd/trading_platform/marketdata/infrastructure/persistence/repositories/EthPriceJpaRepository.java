@@ -89,4 +89,13 @@ public interface EthPriceJpaRepository extends JpaRepository<EthPriceEntity, Lon
         @Param("fromTime") Instant fromTime, 
         @Param("toTime") Instant toTime,
         org.springframework.data.domain.Pageable pageable);
+    
+    /**
+     * Finds only timestamps within a time range for gap detection
+     * This is much more efficient than loading full entities when we only need timestamps
+     */
+    @Query("SELECT ep.timestamp FROM EthPriceEntity ep WHERE ep.timestamp >= :fromTime AND ep.timestamp <= :toTime ORDER BY ep.timestamp ASC")
+    List<Instant> findTimestampsByDateRange(
+        @Param("fromTime") Instant fromTime, 
+        @Param("toTime") Instant toTime);
 }

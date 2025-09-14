@@ -38,13 +38,24 @@ public class BtcPriceRepositoryImpl implements AssetSpecificPriceRepository {
             return;
         }
         
-        logger.debug("Saving {} BTC price data points", ohlcvData.size());
+        logger.debug("Saving {} BTC price data points (insert if not exists)", ohlcvData.size());
         
         List<BtcPriceEntity> entities = mapper.toBtcEntities(ohlcvData);
         
         try {
-            jpaRepository.saveAll(entities);
-            logger.info("Successfully saved {} BTC price data points", ohlcvData.size());
+            // Filter out existing data to avoid duplicate key errors
+            List<BtcPriceEntity> newEntities = entities.stream()
+                .filter(entity -> !jpaRepository.existsByTimestamp(entity.getTimestamp()))
+                .toList();
+            
+            if (newEntities.isEmpty()) {
+                logger.info("All {} BTC price data points already exist, skipping save", ohlcvData.size());
+                return;
+            }
+            
+            jpaRepository.saveAll(newEntities);
+            logger.info("Successfully saved {} new BTC price data points (filtered {} duplicates)", 
+                newEntities.size(), entities.size() - newEntities.size());
         } catch (Exception e) {
             logger.error("Failed to save BTC price data", e);
             throw new RuntimeException("Failed to save BTC price data: " + e.getMessage(), e);
@@ -136,5 +147,20 @@ public class BtcPriceRepositoryImpl implements AssetSpecificPriceRepository {
     @Override
     public String getAssetSymbol() {
         return ASSET_SYMBOL;
+    }
+    
+    @Override
+    public List<java.time.Instant> findTimestampsInRange(java.time.Instant from, java.time.Instant to) {
+        if (from == null || to == null) {
+            return List.of();
+        }
+        
+        logger.debug("Finding BTC price data timestamps for time range: {} to {}", from, to);
+        
+        // Use JPQL query to get only timestamps for better performance
+        List<java.time.Instant> timestamps = jpaRepository.findTimestampsByDateRange(from, to);
+        
+        logger.debug("Found {} BTC timestamp entries for time range", timestamps.size());
+        return timestamps;
     }
 }

@@ -83,6 +83,20 @@ public class ARIMAModel {
         return createFromMasterData(TradingInstrument.ETH, masterData, "ETH_ARIMA_v1.0");
     }
     
+    /**
+     * Factory method for creating BTC ARIMA model with custom version
+     */
+    public static ARIMAModel forBTC(Map<String, Object> masterData, String version) {
+        return createFromMasterData(TradingInstrument.BTC, masterData, version);
+    }
+    
+    /**
+     * Factory method for creating ETH ARIMA model with custom version
+     */
+    public static ARIMAModel forETH(Map<String, Object> masterData, String version) {
+        return createFromMasterData(TradingInstrument.ETH, masterData, version);
+    }
+    
     private static ARIMAModel createFromMasterData(TradingInstrument instrument, Map<String, Object> masterData, String version) {
         // Extract model parameters
         BigDecimal meanDiffOC = new BigDecimal(masterData.get("mean_diff_oc").toString());
@@ -150,10 +164,10 @@ public class ARIMAModel {
     }
     
     /**
-     * Checks if model requires sufficient historical data for forecasting
+     * Checks if model has sufficient historical data for forecasting
      */
     public boolean requiresSufficientData(int availableDataPoints) {
-        return availableDataPoints >= pOrder + 10; // Need at least P lags + some buffer
+        return availableDataPoints >= pOrder; // Need exactly P points to make predictions
     }
     
     /**
@@ -162,8 +176,8 @@ public class ARIMAModel {
     public void validateForForecasting(int availableDataPoints) {
         if (!requiresSufficientData(availableDataPoints)) {
             throw new IllegalArgumentException(
-                String.format("Insufficient data for forecasting. Need at least %d points, but have %d", 
-                    pOrder + 10, availableDataPoints));
+                String.format("Insufficient data for forecasting. Need at least %d points (P order), but have %d", 
+                    pOrder, availableDataPoints));
         }
     }
     

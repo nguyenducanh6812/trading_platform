@@ -1,27 +1,75 @@
-1. The current logic of mode current date is wrong, method determineTimeRange, class ExecuteARIMAForecastUseCase:
-        if (request.isCurrentDateMode()) {
-            // Current date mode: Use default range for ARIMA forecasting (last 2 years of data)
-            LocalDate endDate = LocalDate.now();
-            LocalDate startDate = endDate.minusYears(2);
-            return new TimeRange(startDate.atStartOfDay().toInstant(java.time.ZoneOffset.UTC),
-                                   endDate.atStartOfDay().toInstant(java.time.ZoneOffset.UTC));
-If it is current date, then we will find expected return for current date. It should not have start 2 year ago.
-Like to day I want to find expected return today, that all. It help for realtime trading analystic.
-Else we find expected return for a list of date in range from start to end.
+The current implementation for arima prefict for each date quite complexity and not best approach.
+The input data already has: Master Data Demean Diff OC, Arima Model, arL value, predictionDates need to predict expected return
+So the thing we need is loop through the predict expected return list, to predict exptected return for each day.
+The logic to predict is simple, we can use pipeline pattern to do.
+1. Predict Diff OC calculate
+2. Predict OC
+3. Predict expected return.
+As the formula, the predict diff oc
+Prd_Diff_OC(T) = Σ[Ar.L(i) × ARIMA.Coefficient(i)] + Mean_Diff_OC
+For the master data, I think we should convert it to map data structure
+where key is the time stamp, and value is the demean diff oc value. It will help on calculate predict return
 
-2. Convert MarketDataInstrument
-            // Retrieve historical price data from Market Data module
-            // Convert shared TradingInstrument to marketdata TradingInstrument for API compatibility
-            com.ahd.trading_platform.shared.valueobjects.TradingInstrument marketDataInstrument =
-                convertToMarketDataInstrument(instrument);
-Why we need this code?
-Is that possible to using the same object in shared?
+For example if we want to predict expected return for 12-09-2025
+To calculate predict diff oc value.
+We just need travel the master data from 12-09 - 30 days
+then multiple it with arL1 value in arima model value.
+Then integrate the indext to the next day, multiple with arl2..
+so on when the last date should be 11-09, and arL max, now is arl30.
+we also add validate to make sure it scan all arL value, from 1 to max in arL model.
+That way we can calculate the predict diff oc.
+Then the rest thing is simple calculate for Predict OC, predict Return.
 
 
-3. The last but important.
-We should store the predict expected return to database, then we can reuse it for the next time.
-When store we should have a column to identify which arima lag we are using. For example I have just changed the name of master data file
-to add 20250904 to that file, so we can identify that we are using that master data to find predict expected return.
+public ARIMADateRangePipeline predictForEachDate() {
+            log.debug("Step 2: Predicting for {} dates in sequence", predictionDates.size());
+            
+            List<DemeanDiffOCMasterData> cumulativeMasterData = new ArrayList<>(masterData);
 
-And I see you return all predicted expected return to process variable, but it is incorect. The process variable should not have large business data
-So should store to database, then return process variable the predict success, and the code to retrieve, like arima code 20250904...
+            for (Instant currentPredictionDate : predictionDates) {
+                try {
+                    // Use single date pipeline for each prediction
+                    ARIMAMasterDataPipeline singlePipeline = new ARIMAMasterDataPipeline(
+                            cumulativeMasterData, arimaModel, currentPredictionDate, marketDataRepository, repositoryFactory);
+
+                    singlePipeline
+                            .extractARLagsFromHistory()
+                            .predictTargetDifference()
+                            .calculateTargetPrediction();
+
+                    // Get real data for realistic prices
+                    DemeanDiffOCMasterData baseData = cumulativeMasterData.get(cumulativeMasterData.size() - 1);
+                    double baseOpenPrice = baseData.openPriceAsDouble();
+                    double mostRecentOC = baseData.oc().doubleValue();
+                    double predictedOC = singlePipeline.predictedDiffOC + mostRecentOC;
+                    double predictedClosePrice = baseOpenPrice - predictedOC;
+
+                    // Create calculation for this prediction with real data
+                    TimeSeriesCalculation calculation = TimeSeriesCalculation
+                            .initial(currentPredictionDate, baseOpenPrice, predictedClosePrice)
+                            .withARLags(singlePipeline.arLags)
+                            .withPredictions(
+                                    singlePipeline.predictedDiffOC,
+                                    predictedOC,
+                                    singlePipeline.predictedReturn
+                            );
+
+                    predictions.add(calculation);
+
+                    // For next iteration: simulate adding the predicted data to master data
+                    // (In real backtesting, you'd have actual historical data for validation)
+
+                } catch (Exception e) {
+                    log.warn("Failed to predict for date {}: {}", currentPredictionDate, e.getMessage());
+                    // Create a failed prediction entry with realistic prices
+                    DemeanDiffOCMasterData baseData = cumulativeMasterData.get(cumulativeMasterData.size() - 1);
+                    TimeSeriesCalculation failedCalculation = TimeSeriesCalculation
+                            .initial(currentPredictionDate, baseData.openPriceAsDouble(), baseData.closePriceAsDouble())
+                            .withPredictions(0.0, 0.0, 0.0);
+                    predictions.add(failedCalculation);
+                }
+            }
+            
+            log.debug("Step 2 completed: generated {} predictions", predictions.size());
+            return this;
+        }

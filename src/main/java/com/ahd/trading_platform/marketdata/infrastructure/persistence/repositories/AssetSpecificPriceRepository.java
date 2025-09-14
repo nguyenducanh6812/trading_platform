@@ -61,4 +61,10 @@ public interface AssetSpecificPriceRepository {
      * Returns the asset symbol this repository handles
      */
     String getAssetSymbol();
+    
+    /**
+     * Finds timestamps of existing data within a time range
+     * Used for detecting data gaps
+     */
+    List<java.time.Instant> findTimestampsInRange(java.time.Instant from, java.time.Instant to);
 }

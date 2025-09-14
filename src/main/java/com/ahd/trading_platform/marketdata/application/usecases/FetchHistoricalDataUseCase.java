@@ -25,7 +25,12 @@ import com.ahd.trading_platform.marketdata.domain.constants.TradingConstants;
 
 /**
  * Use case for fetching historical market data from external sources.
- * Orchestrates the process of retrieving, validating, and persisting market data.
+ * 
+ * Business Logic:
+ * - Always fetches data from external source (e.g., Bybit) for the requested time range
+ * - Does NOT check existing data or perform gap detection
+ * - Inserts fetched data if not exists (gracefully handles duplicates)
+ * - This is specifically for data ingestion from external APIs, not for querying existing data
  */
 @Component
 public class FetchHistoricalDataUseCase {
@@ -96,8 +101,20 @@ public class FetchHistoricalDataUseCase {
             try {
                 logger.debug("Processing instrument {} (execution: {})", symbol, executionId);
                 
-                // Create or retrieve instrument
-                MarketInstrument instrument = getOrCreateInstrument(symbol);
+                // Create or retrieve instrument with error handling
+                MarketInstrument instrument;
+                try {
+                    instrument = getOrCreateInstrument(symbol);
+                    logger.debug("Retrieved/created instrument {} (execution: {})", symbol, executionId);
+                } catch (Exception e) {
+                    logger.error("Database error retrieving/creating instrument {} (execution: {})", symbol, executionId, e);
+                    results.put(symbol, MarketDataResponse.InstrumentDataSummary.failure(
+                        symbol, symbol, "INSTRUMENT_RETRIEVAL_ERROR: " + e.getMessage()));
+                    return;
+                }
+                
+                logger.info("Fetching data from external source for {} in range {} to {} (execution: {})",
+                    symbol, timeRange.from(), timeRange.to(), executionId);
                 
                 // Get strategy for the specified data source
                 ExternalDataClientStrategy strategy = clientFactory.getStrategy(dataSource);
@@ -105,7 +122,7 @@ public class FetchHistoricalDataUseCase {
                 logger.debug("Using {} data source for symbol {} (execution: {})", 
                     strategy.getDataSource(), symbol, executionId);
                 
-                // Process data in chunks to avoid memory issues
+                // Process data in chunks to avoid memory issues - fetch entire requested range
                 AtomicInteger totalProcessed = new AtomicInteger(0);
                 AtomicLong earliestTimestamp = new AtomicLong(Long.MAX_VALUE);
                 AtomicLong latestTimestamp = new AtomicLong(Long.MIN_VALUE);
@@ -121,7 +138,15 @@ public class FetchHistoricalDataUseCase {
                 }
                 
                 // Final save after all chunks processed
-                repository.save(instrument);
+                try {
+                    repository.save(instrument);
+                    logger.debug("Successfully saved final instrument data for {} (execution: {})", symbol, executionId);
+                } catch (Exception e) {
+                    logger.error("Database error during final save for {} (execution: {})", symbol, executionId, e);
+                    results.put(symbol, MarketDataResponse.InstrumentDataSummary.failure(
+                        symbol, instrument.getName(), "DATABASE_SAVE_ERROR: " + e.getMessage()));
+                    return;
+                }
                 
                 // Create success summary
                 results.put(symbol, MarketDataResponse.InstrumentDataSummary.success(
@@ -177,8 +202,16 @@ public class FetchHistoricalDataUseCase {
                     i + 1, chunks.length, symbol, chunk.from(), chunk.to(), executionId);
                 
                 try {
-                    // Fetch data for this chunk
-                    List<OHLCV> chunkData = strategy.fetchHistoricalData(symbol, chunk);
+                    // Fetch data for this chunk with error handling
+                    List<OHLCV> chunkData;
+                    try {
+                        chunkData = strategy.fetchHistoricalData(symbol, chunk);
+                    } catch (Exception apiException) {
+                        logger.error("External API error in chunk {}/{} for {} (execution: {}): {}",
+                            i + 1, chunks.length, symbol, executionId, apiException.getMessage());
+                        // Fail fast on API errors for critical data fetching
+                        throw new RuntimeException("External API failed for " + symbol + ": " + apiException.getMessage(), apiException);
+                    }
                     
                     if (chunkData.isEmpty()) {
                         logger.warn("No data in chunk {}/{} for {} (execution: {})", 
@@ -245,9 +278,16 @@ public class FetchHistoricalDataUseCase {
                 logger.debug("Processing batch {}-{} of chunk {}/{} for {} (execution: {})",
                     i, endIndex - 1, chunkNumber, totalChunks, symbol, executionId);
                 
-                // Validate batch quality
-                DataValidationService.ValidationResult validation = 
-                    validationService.validateOHLCVData(batch);
+                // Validate batch quality with error handling
+                DataValidationService.ValidationResult validation;
+                try {
+                    validation = validationService.validateOHLCVData(batch);
+                } catch (Exception validationException) {
+                    logger.error("Validation service error in batch {}-{} for {} (execution: {}): {}",
+                        i, endIndex - 1, symbol, executionId, validationException.getMessage());
+                    // Fail fast on validation service errors
+                    throw new RuntimeException("Data validation failed for " + symbol + ": " + validationException.getMessage(), validationException);
+                }
                 
                 if (!validation.isValid()) {
                     logger.warn("Skipping invalid batch {}-{} for {} (execution: {}): {}",
@@ -260,8 +300,18 @@ public class FetchHistoricalDataUseCase {
                         i, endIndex - 1, symbol, executionId, validation.warnings());
                 }
                 
-                // Add batch to instrument
-                instrument.addPriceData(batch);
+                // Add batch to instrument with error handling
+                // Note: This is "add if not exists" - duplicates will be handled gracefully
+                try {
+                    instrument.addPriceData(batch);
+                    logger.debug("Added batch {}-{} to instrument {} (execution: {})",
+                        i, endIndex - 1, symbol, executionId);
+                } catch (Exception domainException) {
+                    logger.error("Domain error adding batch {}-{} to instrument {} (execution: {}): {}",
+                        i, endIndex - 1, symbol, executionId, domainException.getMessage());
+                    // Fail fast on domain logic errors
+                    throw new RuntimeException("Failed to add data to instrument " + symbol + ": " + domainException.getMessage(), domainException);
+                }
                 
                 // Update tracking variables
                 totalProcessed.addAndGet(batch.size());
@@ -275,9 +325,16 @@ public class FetchHistoricalDataUseCase {
                 
                 // Periodic saves to avoid losing too much work
                 if (totalProcessed.get() % TradingConstants.INTERMEDIATE_SAVE_FREQUENCY == 0) {
-                    repository.save(instrument);
-                    logger.debug("Intermediate save after {} data points for {} (execution: {})",
-                        totalProcessed.get(), symbol, executionId);
+                    try {
+                        repository.save(instrument);
+                        logger.debug("Intermediate save after {} data points for {} (execution: {})",
+                            totalProcessed.get(), symbol, executionId);
+                    } catch (Exception e) {
+                        logger.error("Database error during intermediate save for {} (execution: {}): {}", 
+                            symbol, executionId, e.getMessage(), e);
+                        // Fail fast on database errors
+                        throw new RuntimeException("Database save failed for " + symbol + ": " + e.getMessage(), e);
+                    }
                 }
             }
             
@@ -290,9 +347,43 @@ public class FetchHistoricalDataUseCase {
         }
     }
     
+    /**
+     * Gets or creates instrument for DATA INGESTION purposes only.
+     * 
+     * IMPORTANT: This method uses findInstrumentMetadataBySymbol() which does NOT load
+     * existing price data from the database. This is intentional because:
+     * 
+     * - This use case is for DATA INGESTION from external sources (e.g., Bybit)
+     * - We don't need existing price data when ingesting new data
+     * - Loading all existing price data would be expensive and contradict the business logic
+     * - Separate query APIs should be used when you need to retrieve existing data
+     */
     private MarketInstrument getOrCreateInstrument(String symbol) {
-        return repository.findBySymbol(symbol)
-            .orElseGet(() -> createDefaultInstrument(symbol));
+        try {
+            // Try to find existing instrument metadata only (no price data loading)
+            // This is for data ingestion - we don't need existing price data
+            Optional<MarketInstrument> existingInstrument = 
+                repository.findInstrumentMetadataBySymbol(symbol);
+            
+            if (existingInstrument.isPresent()) {
+                logger.debug("Found existing instrument metadata for symbol: {} (no price data loaded)", symbol);
+                return existingInstrument.get();
+            }
+            
+            // Create new instrument if not found
+            MarketInstrument newInstrument = createDefaultInstrument(symbol);
+            logger.debug("Created new instrument for symbol: {}", symbol);
+            
+            // Save immediately to detect database errors early
+            repository.save(newInstrument);
+            logger.debug("Successfully saved new instrument for symbol: {}", symbol);
+            
+            return newInstrument;
+            
+        } catch (Exception e) {
+            logger.error("Database error in getOrCreateInstrument for symbol: {}", symbol, e);
+            throw new RuntimeException("Failed to retrieve or create instrument " + symbol + ": " + e.getMessage(), e);
+        }
     }
     
     private MarketInstrument createDefaultInstrument(String symbol) {
@@ -302,4 +393,7 @@ public class FetchHistoricalDataUseCase {
             default -> MarketInstrument.crypto(symbol, symbol + " Token");
         };
     }
+    
+    
+    
 }

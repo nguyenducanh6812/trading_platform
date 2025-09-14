@@ -4,13 +4,13 @@ import com.ahd.trading_platform.forecasting.application.dto.ForecastRequest;
 import com.ahd.trading_platform.forecasting.application.dto.ForecastResponse;
 import com.ahd.trading_platform.forecasting.application.dto.ForecastExecutionMetrics;
 import com.ahd.trading_platform.forecasting.application.dto.CalculationStepDto;
-import com.ahd.trading_platform.forecasting.application.services.ForecastResultPersistenceService;
+import com.ahd.trading_platform.forecasting.application.dto.BatchForecastOrchestrationResponse;
 import com.ahd.trading_platform.forecasting.domain.entities.ARIMAModel;
 import com.ahd.trading_platform.forecasting.domain.valueobjects.DemeanDiffOCMasterData;
 import com.ahd.trading_platform.forecasting.domain.valueobjects.*;
-import com.ahd.trading_platform.forecasting.infrastructure.repositories.ARIMAModelRepository;
-import com.ahd.trading_platform.marketdata.application.ports.MarketDataPort;
-import com.ahd.trading_platform.shared.valueobjects.OHLCV;
+import com.ahd.trading_platform.forecasting.domain.repositories.ARIMAModelRepository;
+import com.ahd.trading_platform.forecasting.infrastructure.persistence.repositories.AssetSpecificPredictionRepository;
+import com.ahd.trading_platform.forecasting.infrastructure.persistence.repositories.AssetSpecificPredictionRepositoryFactory;
 import com.ahd.trading_platform.shared.valueobjects.TimeRange;
 import com.ahd.trading_platform.shared.valueobjects.TradingInstrument;
 import lombok.RequiredArgsConstructor;
@@ -18,9 +18,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Use case for executing ARIMA forecasts.
@@ -33,11 +38,10 @@ import java.util.UUID;
 @Transactional
 public class ExecuteARIMAForecastUseCase {
     
-    private final CalculateDemeanDiffOCUseCase calculateDemeanDiffOCUseCase;
+    private final PrepareMasterDataUseCase prepareMasterDataUseCase;
     private final ApplyARIMAModelUseCase applyARIMAModelUseCase;
     private final ARIMAModelRepository arimaModelRepository;
-    private final MarketDataPort marketDataPort;
-    private final ForecastResultPersistenceService persistenceService;
+    private final AssetSpecificPredictionRepositoryFactory predictionRepositoryFactory;
     
     /**
      * Executes ARIMA forecast for the specified request
@@ -54,103 +58,82 @@ public class ExecuteARIMAForecastUseCase {
             
             // Use provided ARIMA model version
             
-            // Check if we already have predictions for the requested date range
-            LocalDate targetDate;
-            String cacheDescription;
             
-            if (request.isCurrentDateMode()) {
-                targetDate = LocalDate.now();
-                cacheDescription = "Cached prediction for today";
-            } else {
-                // For backtesting mode, check if we have prediction for the end date
-                targetDate = LocalDate.parse(request.endDate());
-                cacheDescription = "Cached prediction from previous backtesting";
-            }
-            
-            if (persistenceService.forecastExists(instrument, targetDate, arimaModelVersion)) {
-                log.info("Forecast already exists for {} on {} with model version {} (mode: {})", 
-                    instrument, targetDate, arimaModelVersion, request.isCurrentDateMode() ? "current" : "backtest");
-                
-                var existingResult = persistenceService.getForecastResult(instrument, targetDate, arimaModelVersion);
-                if (existingResult.isPresent()) {
-                    return ForecastResponse.success(
-                        executionId,
-                        request.instrumentCode(),
-                        existingResult.get().getExpectedReturn().doubleValue(),
-                        existingResult.get().getConfidenceLevel().doubleValue(),
-                        targetDate.atStartOfDay().toInstant(java.time.ZoneOffset.UTC),
-                        cacheDescription,
-                        null // No metrics for cached results
-                    );
-                }
-            }
+            // Load specific ARIMA model by version (not just active model)
+            ARIMAModel arimaModel = arimaModelRepository.findByInstrumentAndVersion(instrument, arimaModelVersion)
+                .orElseThrow(() -> new IllegalStateException(
+                    "ARIMA model not found for instrument: " + instrument.getCode() + 
+                    " with version: " + arimaModelVersion));
             
             // Determine prediction time range (dates for which we want forecasts)
             TimeRange predictionRange = determineTimeRange(request);
             
-            // Calculate required historical data range for ARIMA calculation
-            // We need at least AR_ORDER (30) days of historical data before the prediction period
-            TimeRange historicalDataRange = calculateHistoricalDataRange(predictionRange);
+            // Calculate required historical data range using dynamic AR order
+            int arOrder = arimaModel.getPOrder();
+            log.debug("Using dynamic AR order {} for ARIMA calculation", arOrder);
             
-            // Retrieve historical price data from Market Data module
-            List<OHLCV> priceData = marketDataPort.getHistoricalData(instrument, historicalDataRange);
-            if (priceData.isEmpty()) {
-                return ForecastResponse.failure(executionId, request.instrumentCode(), 
-                    "No historical price data available for the required time range");
-            }
+            TimeRange historicalDataRange = calculateHistoricalDataRange(predictionRange, arOrder);
             
-            // Validate data sufficiency for ARIMA calculation
-            if (!hassufficientDataForArima(priceData, predictionRange, 30)) {
-                return ForecastResponse.failure(executionId, request.instrumentCode(), 
-                    "Insufficient historical data for ARIMA calculation. Need at least 30 days of data before prediction period.");
-            }
-            
-            // Load ARIMA model for the instrument
-            ARIMAModel arimaModel = arimaModelRepository.findByInstrument(instrument)
-                .orElseThrow(() -> new IllegalStateException(
-                    "ARIMA model not found for instrument: " + instrument.getCode()));
-            
-            // Step 1: Ensure DemeanDiffOC master data exists
-            log.debug("Checking for DemeanDiffOC master data for {} in time range {} - {}", 
+            // Step 1: Prepare master data using reusable use case (efficient data flow)
+            log.debug("Preparing DemeanDiffOC master data for {} in time range {} - {}", 
                 instrument.getCode(), historicalDataRange.from(), historicalDataRange.to());
             
-            List<DemeanDiffOCMasterData> masterData;
-            if (calculateDemeanDiffOCUseCase.masterDataExists(instrument, historicalDataRange)) {
-                log.debug("Master data exists, loading from repository");
-                masterData = calculateDemeanDiffOCUseCase.getMasterData(instrument, historicalDataRange);
-            } else {
-                log.info("Master data not found, calculating and storing for {} data points", priceData.size());
-                masterData = calculateDemeanDiffOCUseCase.calculateAndStore(instrument, priceData);
+            List<DemeanDiffOCMasterData> masterData = prepareMasterDataUseCase.prepareMasterData(
+                instrument, historicalDataRange, arOrder, arimaModel, executionId);
+            
+            // Final verification that master data meets requirements
+            if (masterData.size() < arOrder) {
+                return ForecastResponse.failure(executionId, request.instrumentCode(), 
+                    String.format("Insufficient master data for ARIMA calculation. Have %d points, need exactly %d (AR order). " +
+                        "Unable to obtain sufficient data for time range: %s to %s", 
+                        masterData.size(), arOrder, historicalDataRange.from(), historicalDataRange.to()));
             }
             
-            // Step 2: Apply ARIMA model using master data
-            log.debug("Applying ARIMA model using {} master data points", masterData.size());
-            ForecastResult result = applyARIMAModelUseCase.applyModel(instrument, masterData, arimaModel);
+            // Step 2: Apply ARIMA model using historical master data
+            ForecastResult result;
+            
+            if (request.isCurrentDateMode()) {
+                // Single date prediction for current date mode
+                Instant targetPredictionDate = LocalDate.now().atStartOfDay().toInstant(java.time.ZoneOffset.UTC);
+                log.debug("Applying ARIMA model using {} historical master data points to predict for current date {}", 
+                    masterData.size(), targetPredictionDate);
+                result = applyARIMAModelUseCase.applyModel(instrument, masterData, arimaModel, targetPredictionDate);
+            } else {
+                // Date range prediction for backtesting mode
+                Instant startPredictionDate = LocalDate.parse(request.startDate()).atStartOfDay().toInstant(java.time.ZoneOffset.UTC);
+                Instant endPredictionDate = LocalDate.parse(request.endDate()).atStartOfDay().toInstant(java.time.ZoneOffset.UTC);
+                log.debug("Applying ARIMA model using {} historical master data points to predict for date range {} to {}", 
+                    masterData.size(), startPredictionDate, endPredictionDate);
+                result = applyARIMAModelUseCase.applyModelForDateRange(instrument, masterData, arimaModel, startPredictionDate, endPredictionDate);
+            }
             
             // Convert domain result to response DTO
             ForecastResponse response = convertToResponse(executionId, result, request.shouldIncludeCalculationDetails());
             
-            // Store the forecast result in the database
-            LocalDate forecastDate = request.isCurrentDateMode() ? LocalDate.now() : 
-                LocalDate.parse(request.endDate()); // For backtesting, use end date as forecast date
+            // Store successful prediction results to database
+            if (response.isSuccessful()) {
+                if (request.isCurrentDateMode()) {
+                    // Single prediction storage
+                    storePredictionResult(response, arimaModelVersion);
+                } else {
+                    // Range prediction storage - store each individual prediction
+                    storeRangePredictionResults(result, response, arimaModelVersion);
+                }
+            }
             
-            persistenceService.storeForecastResult(
-                instrument, 
-                forecastDate, 
-                response, 
-                arimaModelVersion, 
-                executionId, 
-                request.isCurrentDateMode()
-            );
-
-            log.info("ARIMA forecast execution {} completed successfully for {}: expected return = {}%, stored with model version {}",
-                    executionId, request.instrumentCode(), String.format("%.4f", response.getExpectedReturnPercent()), arimaModelVersion);
+            log.info("ARIMA forecast execution {} completed successfully for {}: expected return = {}%",
+                    executionId, request.instrumentCode(), String.format("%.4f", response.getExpectedReturnPercent()));
             
             return response;
             
         } catch (Exception e) {
             log.error("ARIMA forecast execution {} failed for {}: {}", executionId, request.instrumentCode(), e.getMessage(), e);
-            return ForecastResponse.failure(executionId, request.instrumentCode(), e.getMessage());
+            ForecastResponse errorResponse = ForecastResponse.failure(executionId, request.instrumentCode(), e.getMessage());
+            
+            // Store failed prediction for tracking
+            storePredictionResult(errorResponse, arimaModelVersion);
+            
+            return errorResponse;
         }
     }
     
@@ -162,11 +145,97 @@ public class ExecuteARIMAForecastUseCase {
     }
     
     /**
-     * Executes forecast with current model version (for backward compatibility)
+     * Executes forecast with default model version (for backward compatibility)
      */
     public ForecastResponse execute(ForecastRequest request) {
-        String currentModelVersion = persistenceService.getCurrentArimaModelVersion();
-        return execute(request, currentModelVersion);
+        String defaultModelVersion = "20250904"; // Default model version
+        return execute(request, defaultModelVersion);
+    }
+    
+    /**
+     * Executes batch forecasts for multiple instruments.
+     * Returns orchestration response without business data.
+     * Used by Camunda workers for process orchestration.
+     */
+    public BatchForecastOrchestrationResponse executeBatch(
+            List<String> instrumentCodes,
+            String startDate,
+            String endDate,
+            Boolean isCurrentDate,
+            Boolean includeCalculationDetails,
+            String arimaModelVersion) {
+        
+        String executionId = UUID.randomUUID().toString();
+        log.info("Starting batch ARIMA forecast execution {} for {} instruments, startDate-{}, endDate-{}",
+                executionId, instrumentCodes.size(), startDate, endDate);
+        
+        Map<String, String> failedInstruments = new HashMap<>();
+        int successfulForecasts = 0;
+        boolean hasCriticalErrors = false;
+        
+        for (String instrumentCode : instrumentCodes) {
+            try {
+                // Create forecast request for this instrument
+                ForecastRequest request = new ForecastRequest(
+                    instrumentCode,
+                    startDate,
+                    endDate,
+                    isCurrentDate != null ? isCurrentDate : false,
+                    includeCalculationDetails != null ? includeCalculationDetails : false
+                );
+                
+                // Execute forecast using existing single forecast logic
+                ForecastResponse response = execute(request, arimaModelVersion);
+                
+                if (response.isSuccessful()) {
+                    successfulForecasts++;
+                    log.debug("Forecast successful for instrument: {}", instrumentCode);
+                } else {
+                    failedInstruments.put(instrumentCode, response.errorMessage());
+                    
+                    // Check for critical errors that should fail the entire batch
+                    if (isCriticalError(response.errorMessage())) {
+                        hasCriticalErrors = true;
+                        log.error("Critical ARIMA forecast error for {}: {}", instrumentCode, response.errorMessage());
+                    }
+                }
+                
+                // Note: Individual predictions are already stored by the execute() method
+                // No need to duplicate storage logic here
+                
+            } catch (Exception e) {
+                String errorMessage = "Unexpected error: " + e.getMessage();
+                failedInstruments.put(instrumentCode, errorMessage);
+                log.error("Unexpected error in batch forecast for {}: {}", instrumentCode, e.getMessage(), e);
+            }
+        }
+        
+        log.info("Batch ARIMA forecast execution {} completed: {}/{} successful", 
+            executionId, successfulForecasts, instrumentCodes.size());
+        
+        return BatchForecastOrchestrationResponse.withFailures(
+            instrumentCodes.size(),
+            successfulForecasts,
+            failedInstruments,
+            hasCriticalErrors,
+            arimaModelVersion,
+            executionId
+        );
+    }
+    
+    /**
+     * Determines if an error message represents a critical error that should fail the batch
+     */
+    private boolean isCriticalError(String errorMessage) {
+        if (errorMessage == null) {
+            return false;
+        }
+        
+        // Critical errors that should fail the entire Camunda task
+        return errorMessage.contains("Insufficient historical data for ARIMA calculation") ||
+               errorMessage.contains("ARIMA model not found for instrument") ||
+               errorMessage.contains("No historical price data available") ||
+               errorMessage.contains("Failed to load ARIMA model");
     }
     
     private TimeRange determineTimeRange(ForecastRequest request) {
@@ -196,18 +265,24 @@ public class ExecuteARIMAForecastUseCase {
     
     /**
      * Calculate the historical data range needed for ARIMA calculation
+     * @param predictionRange The period for which we want to make predictions
+     * @param arOrder The dynamic AR order from the ARIMA model (p parameter)
      */
-    private TimeRange calculateHistoricalDataRange(TimeRange predictionRange) {
+    private TimeRange calculateHistoricalDataRange(TimeRange predictionRange, int arOrder) {
         // Get the start and end of prediction period
         LocalDate predictionStart = predictionRange.from().atOffset(java.time.ZoneOffset.UTC).toLocalDate();
         LocalDate predictionEnd = predictionRange.to().atOffset(java.time.ZoneOffset.UTC).toLocalDate();
         
-        // For the first prediction (predictionStart), we need arOrder days before it
-        LocalDate historicalStart = predictionStart.minusDays(30);
+        // For ARIMA calculation, we need exactly AR order days of data before prediction period
+        // (dynamic AR order - no buffer needed)
+        LocalDate historicalStart = predictionStart.minusDays(arOrder);
         
-        // For the last prediction (predictionEnd), we need data up to the day before it
-        // This means historical data should extend to predictionEnd - 1
-        LocalDate historicalEnd = predictionEnd.minusDays(1);
+        // For ARIMA prediction, we need the open price of the prediction end day
+        // This means historical data should extend to predictionEnd (inclusive)
+        LocalDate historicalEnd = predictionEnd;
+        
+        log.debug("Historical data range calculated: {} to {} (AR order = {})", 
+            historicalStart, historicalEnd, arOrder);
         
         return new TimeRange(
             historicalStart.atStartOfDay().toInstant(java.time.ZoneOffset.UTC),
@@ -215,26 +290,6 @@ public class ExecuteARIMAForecastUseCase {
         );
     }
     
-    /**
-     * Check if we have sufficient historical data for ARIMA calculation
-     */
-    private boolean hassufficientDataForArima(List<OHLCV> priceData, TimeRange predictionRange, int arOrder) {
-        if (priceData.size() < arOrder) {
-            return false;
-        }
-        
-        // Get prediction start date
-        LocalDate predictionStart = predictionRange.from().atOffset(java.time.ZoneOffset.UTC).toLocalDate();
-        
-        // Count how many data points we have before the prediction period
-        long historicalDataPoints = priceData.stream()
-            .mapToLong(ohlcv -> ohlcv.timestamp().atOffset(java.time.ZoneOffset.UTC).toLocalDate().toEpochDay())
-            .filter(epochDay -> epochDay < predictionStart.toEpochDay())
-            .distinct()
-            .count();
-        
-        return historicalDataPoints >= arOrder;
-    }
     
     private ForecastResponse convertToResponse(String executionId, ForecastResult result, boolean includeCalculationDetails) {
         // Convert metrics
@@ -283,6 +338,7 @@ public class ExecuteARIMAForecastUseCase {
         }
     }
     
+
     private CalculationStepDto convertCalculationStep(TimeSeriesCalculation calculation) {
         return new CalculationStepDto(
             calculation.getCurrentStep(),
@@ -297,6 +353,138 @@ public class ExecuteARIMAForecastUseCase {
             calculation.predictedOC(),
             calculation.predictedReturn()
         );
+    }
+    
+    /**
+     * Stores forecast prediction result to database for tracking and future reference
+     */
+    private void storePredictionResult(ForecastResponse response, String modelVersion) {
+        try {
+            TradingInstrument instrument = TradingInstrument.fromCode(response.instrumentCode());
+            AssetSpecificPredictionRepository repository = predictionRepositoryFactory.getRepository(instrument);
+            
+            ExpectedReturnPrediction prediction;
+            
+            if (response.isSuccessful()) {
+                // Store successful prediction with full metrics
+                ForecastExecutionMetrics metrics = response.metrics();
+                
+                // Extract predicted values from calculation steps for verification
+                CalculationStepDto lastCalculationStep = response.calculationSteps() != null && !response.calculationSteps().isEmpty() 
+                    ? response.calculationSteps().get(response.calculationSteps().size() - 1) : null;
+                
+                BigDecimal predictDiffOC = lastCalculationStep != null && lastCalculationStep.predictedDiffOC() != null 
+                    ? BigDecimal.valueOf(lastCalculationStep.predictedDiffOC()) : null;
+                BigDecimal predictOC = lastCalculationStep != null && lastCalculationStep.predictedOC() != null 
+                    ? BigDecimal.valueOf(lastCalculationStep.predictedOC()) : null;
+                
+                prediction = ExpectedReturnPrediction.successful(
+                    response.executionId(),
+                    instrument,
+                    response.forecastDate(),
+                    BigDecimal.valueOf(response.expectedReturn()),
+                    BigDecimal.valueOf(response.confidenceLevel()),
+                    modelVersion,
+                    response.summary(),
+                    metrics != null ? metrics.dataPointsUsed() : null,
+                    metrics != null ? metrics.arOrder() : null,
+                    metrics != null ? BigDecimal.valueOf(metrics.meanSquaredError()) : null,
+                    metrics != null ? BigDecimal.valueOf(metrics.standardError()) : null,
+                    metrics != null ? metrics.executionTimeMs() : null,
+                    metrics != null ? metrics.dataRangeStart() : null,
+                    metrics != null ? metrics.dataRangeEnd() : null,
+                    metrics != null ? metrics.hasSufficientQuality() : null,
+                    predictDiffOC,
+                    predictOC
+                );
+            } else {
+                // Store failed prediction for tracking
+                prediction = ExpectedReturnPrediction.failed(
+                    response.executionId(),
+                    instrument,
+                    response.forecastDate() != null ? response.forecastDate() : Instant.now(),
+                    modelVersion,
+                    response.errorMessage()
+                );
+            }
+            
+            repository.upsert(prediction);
+            
+            log.info("Successfully upserted {} prediction result for {} with model version {} (executionId: {})",
+                response.status(), response.instrumentCode(), modelVersion, response.executionId());
+                
+        } catch (Exception e) {
+            log.warn("Failed to store prediction result for {} with model version {}: {}. " +
+                "Forecast execution continues normally.", 
+                response.instrumentCode(), modelVersion, e.getMessage());
+            // Don't fail the forecast if storage fails - just log the warning
+        }
+    }
+    
+    /**
+     * Stores multiple prediction results for date range forecasts.
+     * Extracts individual predictions from calculations and stores each one separately.
+     */
+    private void storeRangePredictionResults(ForecastResult result, ForecastResponse summaryResponse, String modelVersion) {
+        try {
+            TradingInstrument instrument = result.instrument();
+            AssetSpecificPredictionRepository repository = predictionRepositoryFactory.getRepository(instrument);
+            
+            // Extract individual predictions from calculations
+            List<ExpectedReturnPrediction> predictions = new ArrayList<>();
+            
+            for (TimeSeriesCalculation calculation : result.calculations()) {
+                // Only store calculations that have prediction results (not historical data points)
+                if (calculation.predictedReturn() != null && calculation.timestamp() != null) {
+                    
+                    // Create individual prediction for each date
+                    // Generate shorter execution ID for range predictions to fit 36 char limit
+                    String dateStr = calculation.timestamp().toString().substring(0, 10);
+                    String shortExecutionId = summaryResponse.executionId().substring(0, 24) + "-" + dateStr; // 24 + 1 + 10 = 35 chars
+                    ExpectedReturnPrediction prediction = ExpectedReturnPrediction.successful(
+                        shortExecutionId, // Unique execution ID per date
+                        instrument,
+                        calculation.timestamp(),
+                        BigDecimal.valueOf(calculation.predictedReturn()),
+                        BigDecimal.valueOf(result.confidenceLevel()),
+                        modelVersion,
+                        String.format("ARIMA forecast for %s on %s: %.4f%% expected return (%.1f%% confidence)", 
+                            instrument.getCode(), 
+                            calculation.timestamp().toString().substring(0, 10), 
+                            calculation.predictedReturn() * 100.0, 
+                            result.confidenceLevel() * 100.0),
+                        result.metrics().dataPointsUsed(),
+                        result.metrics().arOrder(),
+                        BigDecimal.valueOf(result.metrics().meanSquaredError()),
+                        BigDecimal.valueOf(result.metrics().standardError()),
+                        result.metrics().getExecutionTimeMs(),
+                        result.metrics().dataRangeStart(),
+                        result.metrics().dataRangeEnd(),
+                        result.metrics().hasSufficientQuality(),
+                        calculation.predictedDiffOC() != null ? BigDecimal.valueOf(calculation.predictedDiffOC()) : null,
+                        calculation.predictedOC() != null ? BigDecimal.valueOf(calculation.predictedOC()) : null
+                    );
+                    
+                    predictions.add(prediction);
+                }
+            }
+            
+            // Store all individual predictions using upsert
+            int storedCount = 0;
+            for (ExpectedReturnPrediction prediction : predictions) {
+                repository.upsert(prediction);
+                storedCount++;
+            }
+            
+            log.info("Successfully upserted {} individual prediction results for {} with model version {} from range forecast (executionId: {})",
+                storedCount, summaryResponse.instrumentCode(), modelVersion, summaryResponse.executionId());
+                
+        } catch (Exception e) {
+            log.warn("Failed to store range prediction results for {} with model version {}: {}. " +
+                "Forecast execution continues normally.", 
+                summaryResponse.instrumentCode(), modelVersion, e.getMessage());
+            // Don't fail the forecast if storage fails - just log the warning
+        }
     }
     
 }

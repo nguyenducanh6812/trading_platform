@@ -6,6 +6,7 @@ import com.ahd.trading_platform.shared.valueobjects.TradingInstrument;
 import org.springframework.modulith.NamedInterface;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Port interface for Market Data module operations.
@@ -39,4 +40,15 @@ public interface MarketDataPort {
      * @return The total number of data points available
      */
     int getHistoricalDataPointCount(TradingInstrument instrument);
+    
+    /**
+     * Fetches missing historical data from external sources for the specified instrument and time range.
+     * This method triggers external API calls to retrieve and store missing price data.
+     * 
+     * @param instrument The trading instrument to fetch data for
+     * @param timeRange The time range for which to fetch missing data
+     * @param executionId Execution ID for tracking and logging
+     * @return CompletableFuture with the result - true if successful, false if failed
+     */
+    CompletableFuture<Boolean> fetchMissingHistoricalData(TradingInstrument instrument, TimeRange timeRange, String executionId);
 }

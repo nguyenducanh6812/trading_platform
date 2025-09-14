@@ -96,41 +96,52 @@ Each module follows **4-layer DDD architecture**:
 
 **❌ WRONG - Business Logic in Worker**:
 ```java
-@ExternalTaskSubscription("fetch-data")
+@ExternalTaskSubscription("predict-expected-return-arima")
 public void handleTask(ExternalTask task, ExternalTaskService service) {
-    // ❌ Worker doing business logic
-    MarketDataResponse result = applicationService.fetchData(request);
+    // ❌ Worker handling business logic loops
+    for (TradingInstrument instrument : instruments) {
+        ForecastResponse response = executeARIMAForecastUseCase.execute(request);
+        if (response.isSuccessful()) {
+            successfulForecasts++;
+        } else {
+            // ❌ Complex business error analysis in worker
+            if (response.errorMessage().contains("Insufficient data")) {
+                hasCriticalErrors = true;
+            }
+        }
+    }
     
-    // ❌ Returning business data to process
-    Map<String, Object> variables = Map.of("fetchResult", result);
-    service.complete(task, variables);
+    // ❌ Business decisions in worker
+    if (hasCriticalErrors) {
+        service.handleBpmnError(task, "CRITICAL_ERROR", errorMessage);
+    }
 }
 ```
 
 **✅ CORRECT - Thin Orchestration Layer**:
 ```java
-@ExternalTaskSubscription("fetch-instruments-data")
-public class FetchInstrumentDataTaskWorker implements ExternalTaskHandler {
+@ExternalTaskSubscription("predict-expected-return-arima")
+public class ExecuteARIMAForecastTaskWorker implements ExternalTaskHandler {
     
-    private final FetchHistoricalDataUseCase fetchHistoricalDataUseCase;
+    private final ExecuteARIMAForecastUseCase executeARIMAForecastUseCase;
     
     public void execute(ExternalTask task, ExternalTaskService service) {
         try {
             // ✅ Extract orchestration input only
             OrchestrationInput input = extractOrchestrationInput(task);
             
-            // ✅ Delegate to domain use case
-            String executionId = fetchHistoricalDataUseCase.execute(
-                input.instrumentCodes(), input.timeRange()
-            );
+            // ✅ Delegate ALL business logic to use case/service
+            Map<String, ForecastResponse> responses = executeBatchForecasts(input);
+            BatchForecastResult batchResult = analyzeBatchResults(responses);
+            
+            // ✅ Simple orchestration logic only
+            if (batchResult.hasCriticalErrors()) {
+                service.handleBpmnError(task, "ARIMA_CRITICAL_ERROR", batchResult.criticalErrorMessage());
+                return;
+            }
             
             // ✅ Return orchestration data only (no business data)
-            Map<String, Object> result = Map.of(
-                "executionId", executionId,
-                "taskCompleted", true,
-                "completedAt", System.currentTimeMillis()
-            );
-            
+            Map<String, Object> result = createOrchestrationOutput(input, batchResult);
             service.complete(task, result);
             
         } catch (InvalidProcessVariablesException e) {
@@ -140,6 +151,12 @@ public class FetchInstrumentDataTaskWorker implements ExternalTaskHandler {
             service.handleFailure(task, e.getMessage(), e.toString(), retries, 60000L);
         }
     }
+    
+    // ✅ Simple delegation to use case (no business logic)
+    private Map<String, ForecastResponse> executeBatchForecasts(OrchestrationInput input) {
+        // Delegate to use case - worker just orchestrates
+        return useCase.executeBatchForecasts(input);
+    }
 }
 ```
 
@@ -148,6 +165,10 @@ public class FetchInstrumentDataTaskWorker implements ExternalTaskHandler {
 2. **Dependency**: Inject domain use cases, not application services
 3. **Process Variables**: Only orchestration data (`executionId`, `taskCompleted`), never business data
 4. **Error Handling**: `handleBpmnError()` for business errors, `handleFailure()` for technical errors
+5. **No Business Logic**: Workers should NOT contain loops, conditionals, or business decisions
+6. **Delegation Pattern**: Extract input → Delegate to use case → Handle errors → Return variables
+7. **Batch Operations**: Use case handles multiple items, not worker loops
+8. **Error Analysis**: Use case determines critical vs non-critical errors, not worker
 
 ### Critical Camunda Annotations
 
@@ -210,6 +231,42 @@ public static final String RESOURCE = "resource";
 - ✅ **Use constants for**: Process variables shared across multiple workers/components
 - ❌ **Don't use constants for**: Topic names, process definition keys, lock durations unique to one worker
 - ✅ **Principle**: "Make constants only when there's actual reuse, not just because you can"
+
+### Worker Architecture Principles
+
+**❌ WRONG - Worker handles business complexity**:
+- Loops over business objects (instruments, forecasts, etc.)
+- Complex conditional logic for business rules
+- Error categorization and analysis
+- Business decision making (success/failure determination)
+- Data transformation and processing
+
+**✅ CORRECT - Worker as thin orchestration layer**:
+- Extracts input from process variables
+- Single delegation call to use case/service
+- Simple orchestration checks (not business logic)
+- Returns process flow variables only
+- Error handling for technical vs business failures
+
+**Key Pattern**:
+```java
+// Worker method structure
+public void execute(ExternalTask task, ExternalTaskService service) {
+    try {
+        Input input = extractInput(task);           // Extract
+        Result result = useCase.execute(input);     // Delegate  
+        if (result.hasCriticalErrors()) {           // Simple check
+            service.handleBpmnError(...);          // Handle
+        } else {
+            service.complete(task, toVariables(result)); // Return
+        }
+    } catch (ValidationException e) {
+        service.handleBpmnError(...);              // Business error
+    } catch (Exception e) {
+        service.handleFailure(...);               // Technical error
+    }
+}
+```
 
 ### Docker Compose Configuration Best Practices
 

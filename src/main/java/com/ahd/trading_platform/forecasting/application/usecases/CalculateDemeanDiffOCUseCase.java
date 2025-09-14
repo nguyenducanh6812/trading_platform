@@ -1,7 +1,8 @@
 package com.ahd.trading_platform.forecasting.application.usecases;
 
-import com.ahd.trading_platform.forecasting.domain.repositories.DemeanDiffOCMasterDataRepository;
 import com.ahd.trading_platform.forecasting.domain.valueobjects.DemeanDiffOCMasterData;
+import com.ahd.trading_platform.forecasting.infrastructure.persistence.repositories.AssetSpecificMasterDataRepository;
+import com.ahd.trading_platform.forecasting.infrastructure.persistence.repositories.AssetSpecificMasterDataRepositoryFactory;
 import com.ahd.trading_platform.shared.valueobjects.OHLCV;
 import com.ahd.trading_platform.shared.valueobjects.TimeRange;
 import com.ahd.trading_platform.shared.valueobjects.TradingInstrument;
@@ -29,17 +30,18 @@ import java.util.List;
 @Transactional
 public class CalculateDemeanDiffOCUseCase {
     
-    private final DemeanDiffOCMasterDataRepository masterDataRepository;
+    private final AssetSpecificMasterDataRepositoryFactory repositoryFactory;
     
     private static final String CURRENT_CALCULATION_VERSION = "v1.0.0";
     
     /**
-     * Calculates DemeanDiffOC master data for the specified instrument and price data.
-     * If master data already exists for the time range, it will be skipped.
+     * Calculates and stores DemeanDiffOC master data for the specified instrument and price data.
+     * Note: This method focuses solely on calculation and storage. 
+     * Existence checking should be handled by the calling use case.
      * 
      * @param instrument The trading instrument
-     * @param priceData Historical OHLCV data sorted by timestamp
-     * @return List of calculated master data points
+     * @param priceData Historical OHLCV data sorted by timestamp (first day used for DiffOC calculation only)
+     * @return List of calculated and stored master data points
      */
     public List<DemeanDiffOCMasterData> calculateAndStore(
             TradingInstrument instrument, 
@@ -48,7 +50,7 @@ public class CalculateDemeanDiffOCUseCase {
         log.info("Starting DemeanDiffOC calculation for {} with {} data points", 
             instrument.getCode(), priceData.size());
         
-        if (priceData == null || priceData.isEmpty()) {
+        if (priceData.isEmpty()) {
             throw new IllegalArgumentException("Price data cannot be null or empty");
         }
         
@@ -57,19 +59,8 @@ public class CalculateDemeanDiffOCUseCase {
             .sorted(Comparator.comparing(OHLCV::timestamp))
             .toList();
             
-        // Check if we already have master data for this time range
-        TimeRange timeRange = new TimeRange(
-            sortedData.get(0).timestamp(),
-            sortedData.get(sortedData.size() - 1).timestamp()
-        );
-        
-        if (masterDataRepository.existsForInstrumentAndTimeRange(
-                instrument, timeRange, CURRENT_CALCULATION_VERSION)) {
-            log.info("Master data already exists for {} in time range {} - {}. Loading existing data.", 
-                instrument.getCode(), timeRange.from(), timeRange.to());
-            return masterDataRepository.findByInstrumentAndTimeRange(
-                instrument, timeRange, CURRENT_CALCULATION_VERSION);
-        }
+        // Get the appropriate repository for the instrument
+        AssetSpecificMasterDataRepository repository = repositoryFactory.getRepository(instrument);
         
         // Step 1: Calculate mean of Diff_OC for the entire dataset
         BigDecimal meanDiffOC = calculateMeanDiffOC(sortedData);
@@ -112,7 +103,7 @@ public class CalculateDemeanDiffOCUseCase {
         }
         
         // Step 3: Save all master data to repository
-        List<DemeanDiffOCMasterData> savedMasterData = masterDataRepository.saveAll(masterDataList);
+        List<DemeanDiffOCMasterData> savedMasterData = repository.saveAll(masterDataList);
         
         log.info("Successfully calculated and stored {} DemeanDiffOC master data points for {}", 
             savedMasterData.size(), instrument.getCode());
@@ -124,8 +115,17 @@ public class CalculateDemeanDiffOCUseCase {
      * Checks if master data exists for the specified parameters
      */
     public boolean masterDataExists(TradingInstrument instrument, TimeRange timeRange) {
-        return masterDataRepository.existsForInstrumentAndTimeRange(
-            instrument, timeRange, CURRENT_CALCULATION_VERSION);
+        AssetSpecificMasterDataRepository repository = repositoryFactory.getRepository(instrument);
+        return repository.existsForTimeRange(timeRange);
+    }
+    
+    /**
+     * Gets count of existing master data for the specified parameters
+     * (more efficient than loading all data when only count is needed)
+     */
+    public long getMasterDataCount(TradingInstrument instrument, TimeRange timeRange) {
+        AssetSpecificMasterDataRepository repository = repositoryFactory.getRepository(instrument);
+        return repository.countByTimeRange(timeRange);
     }
     
     /**
@@ -135,8 +135,8 @@ public class CalculateDemeanDiffOCUseCase {
             TradingInstrument instrument, 
             TimeRange timeRange) {
         
-        return masterDataRepository.findByInstrumentAndTimeRange(
-            instrument, timeRange, CURRENT_CALCULATION_VERSION);
+        AssetSpecificMasterDataRepository repository = repositoryFactory.getRepository(instrument);
+        return repository.findByTimeRange(timeRange);
     }
     
     /**
@@ -154,7 +154,7 @@ public class CalculateDemeanDiffOCUseCase {
         BigDecimal previousOC = null;
         
         for (OHLCV ohlcv : priceData) {
-            BigDecimal currentOC = ohlcv.open().amount().subtract(ohlcv.close().amount());
+            BigDecimal currentOC = ohlcv.close().amount().subtract(ohlcv.open().amount());
             
             if (previousOC != null) {
                 BigDecimal diffOC = currentOC.subtract(previousOC);
@@ -177,7 +177,7 @@ public class CalculateDemeanDiffOCUseCase {
      */
     public void clearMasterData(TradingInstrument instrument) {
         log.warn("Clearing all master data for instrument: {}", instrument.getCode());
-        masterDataRepository.deleteByInstrumentAndCalculationVersion(
-            instrument, CURRENT_CALCULATION_VERSION);
+        AssetSpecificMasterDataRepository repository = repositoryFactory.getRepository(instrument);
+        repository.deleteAll();
     }
 }

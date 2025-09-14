@@ -3,6 +3,7 @@ package com.ahd.trading_platform.marketdata.domain.repositories;
 import com.ahd.trading_platform.marketdata.domain.entities.MarketInstrument;
 import com.ahd.trading_platform.shared.valueobjects.OHLCV;
 import com.ahd.trading_platform.shared.valueobjects.TimeRange;
+import org.springframework.modulith.NamedInterface;
 
 import java.util.List;
 import java.util.Optional;
@@ -10,7 +11,9 @@ import java.util.Optional;
 /**
  * Repository contract for market data persistence operations.
  * This is a domain interface that should be implemented in the infrastructure layer.
+ * Exposed as a named interface for cross-module access.
  */
+@NamedInterface
 public interface MarketDataRepository {
     
     /**
@@ -19,9 +22,15 @@ public interface MarketDataRepository {
     void save(MarketInstrument instrument);
     
     /**
-     * Finds a market instrument by symbol
+     * Finds a market instrument by symbol (loads full data including price history)
      */
     Optional<MarketInstrument> findBySymbol(String symbol);
+    
+    /**
+     * Finds a market instrument by symbol WITHOUT loading price data.
+     * Used for data ingestion scenarios where we only need instrument metadata.
+     */
+    Optional<MarketInstrument> findInstrumentMetadataBySymbol(String symbol);
     
     /**
      * Finds all market instruments
@@ -57,4 +66,10 @@ public interface MarketDataRepository {
      * Returns the count of data points for an instrument
      */
     long getDataPointCount(String symbol);
+    
+    /**
+     * Finds existing data ranges for an instrument within the specified time range
+     * Returns a list of time ranges where data already exists
+     */
+    List<TimeRange> findDataRanges(String symbol, TimeRange searchRange);
 }

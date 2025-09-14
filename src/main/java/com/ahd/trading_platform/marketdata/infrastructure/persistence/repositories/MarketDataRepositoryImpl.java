@@ -48,9 +48,9 @@ public class MarketDataRepositoryImpl implements MarketDataRepository {
         
         logger.debug("Saving market instrument: {}", instrument.getSymbol());
         
-        // Save or update instrument metadata
-        MarketInstrumentEntity entity = mapper.toEntity(instrument);
-        MarketInstrumentEntity savedEntity = instrumentRepository.save(entity);
+        // Save or update instrument metadata - use saveOrUpdate to avoid duplicate key errors
+        MarketInstrumentEntity entity = saveOrUpdateInstrument(instrument);
+        MarketInstrumentEntity savedEntity = entity;
         
         // Save price data using asset-specific repository
         List<OHLCV> priceHistory = instrument.getPriceHistory();
@@ -65,6 +65,41 @@ public class MarketDataRepositoryImpl implements MarketDataRepository {
         }
         
         logger.info("Successfully saved market instrument: {}", instrument.getSymbol());
+    }
+    
+    /**
+     * Saves or updates instrument metadata without causing duplicate key violations
+     */
+    private MarketInstrumentEntity saveOrUpdateInstrument(MarketInstrument instrument) {
+        // Check if instrument already exists
+        Optional<MarketInstrumentEntity> existingEntityOpt = 
+            instrumentRepository.findBySymbolIgnoreCase(instrument.getSymbol());
+        
+        if (existingEntityOpt.isPresent()) {
+            // Update existing instrument
+            MarketInstrumentEntity existingEntity = existingEntityOpt.get();
+            updateInstrumentEntity(existingEntity, instrument);
+            return instrumentRepository.save(existingEntity);
+        } else {
+            // Create new instrument
+            MarketInstrumentEntity newEntity = mapper.toEntity(instrument);
+            return instrumentRepository.save(newEntity);
+        }
+    }
+    
+    /**
+     * Updates existing instrument entity with data from domain object
+     */
+    private void updateInstrumentEntity(MarketInstrumentEntity entity, MarketInstrument instrument) {
+        entity.setName(instrument.getName());
+        entity.setDataPointCount(instrument.getDataPointCount());
+        entity.setQualityScore(instrument.getQualityMetrics().getQualityScore());
+        entity.setQualityLevel(instrument.getQualityMetrics().getQualityLevel());
+        entity.setDataSource(instrument.getQualityMetrics().dataSource());
+        // Don't update symbol as it's the primary key
+        // Don't update audit fields (created_at, created_by) as they should remain unchanged
+        entity.getAuditInfo().setUpdatedAt(java.time.Instant.now());
+        entity.getAuditInfo().setUpdatedBy("SYSTEM");
     }
     
     @Override
@@ -95,6 +130,30 @@ public class MarketDataRepositoryImpl implements MarketDataRepository {
                 logger.warn("Failed to load price data for {}: {}", symbol, e.getMessage());
             }
         }
+        
+        return Optional.of(instrument);
+    }
+    
+    /**
+     * Finds instrument by symbol WITHOUT loading price data.
+     * Used for data ingestion scenarios where we only need instrument metadata.
+     */
+    public Optional<MarketInstrument> findInstrumentMetadataBySymbol(String symbol) {
+        if (symbol == null || symbol.isBlank()) {
+            return Optional.empty();
+        }
+        
+        logger.debug("Finding instrument metadata by symbol: {}", symbol);
+        
+        Optional<MarketInstrumentEntity> entityOpt = instrumentRepository.findBySymbolIgnoreCase(symbol);
+        if (entityOpt.isEmpty()) {
+            logger.debug("Instrument metadata not found: {}", symbol);
+            return Optional.empty();
+        }
+        
+        // Return instrument without loading price data - for data ingestion only
+        MarketInstrument instrument = mapper.toDomain(entityOpt.get());
+        logger.debug("Found instrument metadata for {}", symbol);
         
         return Optional.of(instrument);
     }
@@ -238,5 +297,85 @@ public class MarketDataRepositoryImpl implements MarketDataRepository {
         
         AssetSpecificPriceRepository priceRepo = repositoryFactory.getRepository(symbol);
         return priceRepo.count();
+    }
+    
+    @Override
+    public List<TimeRange> findDataRanges(String symbol, TimeRange searchRange) {
+        if (symbol == null || symbol.isBlank() || searchRange == null) {
+            return List.of();
+        }
+        
+        logger.debug("Finding existing data ranges for {} within {}", symbol, searchRange);
+        
+        // Check if we have an asset-specific repository for this symbol
+        if (!repositoryFactory.supportsAsset(symbol)) {
+            logger.debug("No asset-specific repository found for {}", symbol);
+            return List.of();
+        }
+        
+        try {
+            AssetSpecificPriceRepository priceRepo = repositoryFactory.getRepository(symbol);
+            
+            // Get existing timestamps within the search range
+            List<java.time.Instant> existingTimestamps = priceRepo.findTimestampsInRange(
+                searchRange.from(), searchRange.to());
+            
+            if (existingTimestamps.isEmpty()) {
+                logger.debug("No existing data found for {} in range", symbol);
+                return List.of();
+            }
+            
+            // Convert timestamps to continuous ranges
+            List<TimeRange> dataRanges = convertTimestampsToRanges(existingTimestamps);
+            
+            logger.debug("Found {} existing data ranges for {}", dataRanges.size(), symbol);
+            return dataRanges;
+            
+        } catch (Exception e) {
+            logger.error("Error finding data ranges for {} in range {}: {}", 
+                symbol, searchRange, e.getMessage(), e);
+            // Return empty list if we can't determine existing data
+            return List.of();
+        }
+    }
+    
+    /**
+     * Converts a list of timestamps to continuous time ranges
+     */
+    private List<TimeRange> convertTimestampsToRanges(List<java.time.Instant> timestamps) {
+        if (timestamps.isEmpty()) {
+            return List.of();
+        }
+        
+        // Sort timestamps
+        List<java.time.Instant> sorted = timestamps.stream()
+            .sorted()
+            .toList();
+        
+        List<TimeRange> ranges = new java.util.ArrayList<>();
+        java.time.Instant rangeStart = sorted.get(0);
+        java.time.Instant rangeEnd = sorted.get(0);
+        
+        // 1 day gap tolerance (data is daily)
+        java.time.Duration gapTolerance = java.time.Duration.ofDays(2);
+        
+        for (int i = 1; i < sorted.size(); i++) {
+            java.time.Instant current = sorted.get(i);
+            
+            if (java.time.Duration.between(rangeEnd, current).compareTo(gapTolerance) <= 0) {
+                // Continue current range
+                rangeEnd = current;
+            } else {
+                // Gap found - close current range and start new one
+                ranges.add(new TimeRange(rangeStart, rangeEnd.plus(java.time.Duration.ofDays(1))));
+                rangeStart = current;
+                rangeEnd = current;
+            }
+        }
+        
+        // Add the final range
+        ranges.add(new TimeRange(rangeStart, rangeEnd.plus(java.time.Duration.ofDays(1))));
+        
+        return ranges;
     }
 }

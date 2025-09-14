@@ -31,9 +31,13 @@ public record TimeSeriesCalculation(
             throw new IllegalArgumentException("Close price must be positive");
         }
         
-        // Validate AR lags if present
-        if (arLags != null && arLags.contains(null)) {
-            throw new IllegalArgumentException("AR lag values cannot contain null");
+        // Validate AR lags if present - avoid using contains(null) due to potential issues
+        if (arLags != null) {
+            for (int i = 0; i < arLags.size(); i++) {
+                if (arLags.get(i) == null) {
+                    throw new IllegalArgumentException(String.format("AR lag at index %d cannot be null", i));
+                }
+            }
         }
     }
     
@@ -61,9 +65,18 @@ public record TimeSeriesCalculation(
      * Creates calculation with AR lag values
      */
     public TimeSeriesCalculation withARLags(List<Double> arLags) {
+        // Explicit null validation before creating immutable list to avoid List.copyOf() issues
+        if (arLags != null) {
+            for (int i = 0; i < arLags.size(); i++) {
+                if (arLags.get(i) == null) {
+                    throw new IllegalArgumentException(String.format("AR lag at index %d is null", i));
+                }
+            }
+        }
+        
         return new TimeSeriesCalculation(
             timestamp, openPrice, closePrice, oc, diffOC, demeanDiffOC,
-            List.copyOf(arLags), predictedDiffOC, predictedOC, predictedReturn
+            arLags != null ? List.copyOf(arLags) : null, predictedDiffOC, predictedOC, predictedReturn
         );
     }
     

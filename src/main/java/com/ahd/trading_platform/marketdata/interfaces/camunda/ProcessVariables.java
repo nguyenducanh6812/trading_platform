@@ -23,5 +23,6 @@ public final class ProcessVariables {
     public static final String TASK_COMPLETED = "taskCompleted";
     public static final String COMPLETED_AT = "completedAt";
     public static final String INSTRUMENTS_REQUESTED = "instrumentsRequested";
+    public static final String INSTRUMENTS_PROCESSED = "instrumentsProcessed";
     public static final String DATA_SOURCE = "dataSource";
 }

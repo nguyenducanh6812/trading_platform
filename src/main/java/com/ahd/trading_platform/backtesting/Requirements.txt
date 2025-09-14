@@ -1,0 +1,17 @@
+This backtesting module serving for manage the backtesing flow.
+The input of backtesting:
+1. Instrument pair: For example: BTC-ETH
+2. Range backtest: Start date, end date
+3. Predict Expected Return Model: 20250904 (This is current code of ARIMA model version)
+
+Flow:
+Step 1. Validate Instrument pair availbility, by check the market instrument active in market data module
+Step 2. Validate Predict Expected Return Of Model availability, by count the number of predict expected return by model
+have the same as backtest range date. This should be call to forecasting model to check.
+Step 3. Then will start the back test. This will be an external worker, and handle by python worker, so we don't
+need to care about it now.
+
+For this flow, I prefer using service type Java Class, instead of external worker architect in Camunda. Cause this think is an service flow
+so using Java Class is more suite table. You can refer the Java Delegate task to follow best practices.
+
+Remember follow the DDD, and Best Practices.

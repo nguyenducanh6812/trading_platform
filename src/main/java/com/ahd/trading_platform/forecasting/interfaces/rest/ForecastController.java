@@ -3,7 +3,7 @@ package com.ahd.trading_platform.forecasting.interfaces.rest;
 import com.ahd.trading_platform.forecasting.application.dto.ForecastRequest;
 import com.ahd.trading_platform.forecasting.application.dto.ForecastResponse;
 import com.ahd.trading_platform.forecasting.application.usecases.ExecuteARIMAForecastUseCase;
-import com.ahd.trading_platform.forecasting.infrastructure.repositories.ARIMAModelRepository;
+import com.ahd.trading_platform.forecasting.domain.repositories.ARIMAModelRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;

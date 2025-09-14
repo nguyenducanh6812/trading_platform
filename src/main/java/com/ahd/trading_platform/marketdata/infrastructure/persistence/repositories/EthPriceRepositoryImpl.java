@@ -38,13 +38,24 @@ public class EthPriceRepositoryImpl implements AssetSpecificPriceRepository {
             return;
         }
         
-        logger.debug("Saving {} ETH price data points", ohlcvData.size());
+        logger.debug("Saving {} ETH price data points (insert if not exists)", ohlcvData.size());
         
         List<EthPriceEntity> entities = mapper.toEthEntities(ohlcvData);
         
         try {
-            jpaRepository.saveAll(entities);
-            logger.info("Successfully saved {} ETH price data points", ohlcvData.size());
+            // Filter out existing data to avoid duplicate key errors
+            List<EthPriceEntity> newEntities = entities.stream()
+                .filter(entity -> !jpaRepository.existsByTimestamp(entity.getTimestamp()))
+                .toList();
+            
+            if (newEntities.isEmpty()) {
+                logger.info("All {} ETH price data points already exist, skipping save", ohlcvData.size());
+                return;
+            }
+            
+            jpaRepository.saveAll(newEntities);
+            logger.info("Successfully saved {} new ETH price data points (filtered {} duplicates)", 
+                newEntities.size(), entities.size() - newEntities.size());
         } catch (Exception e) {
             logger.error("Failed to save ETH price data", e);
             throw new RuntimeException("Failed to save ETH price data: " + e.getMessage(), e);
@@ -136,5 +147,20 @@ public class EthPriceRepositoryImpl implements AssetSpecificPriceRepository {
     @Override
     public String getAssetSymbol() {
         return ASSET_SYMBOL;
+    }
+    
+    @Override
+    public List<java.time.Instant> findTimestampsInRange(java.time.Instant from, java.time.Instant to) {
+        if (from == null || to == null) {
+            return List.of();
+        }
+        
+        logger.debug("Finding ETH price data timestamps for time range: {} to {}", from, to);
+        
+        // Use JPQL query to get only timestamps for better performance
+        List<java.time.Instant> timestamps = jpaRepository.findTimestampsByDateRange(from, to);
+        
+        logger.debug("Found {} ETH timestamp entries for time range", timestamps.size());
+        return timestamps;
     }
 }

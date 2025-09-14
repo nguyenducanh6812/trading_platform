@@ -24,6 +24,12 @@ import java.util.Arrays;
 /**
  * Camunda External Task Worker for the "fetch-instruments-data" topic.
  * 
+ * Business Purpose:
+ * - Fetches market data from external sources (e.g., Bybit) and stores in database
+ * - Always fetches for the requested time range, regardless of existing data
+ * - Handles "insert if not exists" logic to avoid duplicate key errors
+ * - This is for data ingestion, NOT for querying existing data
+ * 
  * DDD Architecture Role:
  * - Acts as a thin orchestration layer (like a controller)
  * - Extracts process variables and delegates to domain use cases
@@ -79,9 +85,34 @@ public class FetchInstrumentDataTaskWorker implements ExternalTaskHandler {
             // Generate execution ID for tracking
             String executionId = "exec_" + processInstanceId + "_" + System.currentTimeMillis();
             
-            // Delegate to domain use case (business logic handled in domain layer)
-            // Note: This returns CompletableFuture, but we handle orchestration only
-            fetchHistoricalDataUseCase.execute(request, executionId);
+            // Delegate to domain use case and wait for completion to ensure proper error handling
+            var marketDataResponse = fetchHistoricalDataUseCase.execute(request, executionId).join();
+            
+            // Check if the response indicates failure
+            if (!marketDataResponse.success()) {
+                String errorMessage = "Market data fetch failed: " + marketDataResponse.message();
+                logger.error("Market data fetch failed for ProcessInstance: {}. Error: {}", 
+                    processInstanceId, errorMessage);
+                externalTaskService.handleBpmnError(externalTask, "MARKET_DATA_FETCH_FAILED", errorMessage);
+                return;
+            }
+            
+            // Check if all instruments were processed successfully
+            boolean hasFailures = marketDataResponse.instrumentData().values().stream()
+                .anyMatch(summary -> !"SUCCESS".equals(summary.status()));
+            
+            if (hasFailures) {
+                List<String> failedInstruments = marketDataResponse.instrumentData().entrySet().stream()
+                    .filter(entry -> !"SUCCESS".equals(entry.getValue().status()))
+                    .map(Map.Entry::getKey)
+                    .toList();
+                
+                String errorMessage = "Some instruments failed to fetch data: " + failedInstruments;
+                logger.error("Partial failure in market data fetch for ProcessInstance: {}. Failed instruments: {}", 
+                    processInstanceId, failedInstruments);
+                externalTaskService.handleBpmnError(externalTask, "PARTIAL_MARKET_DATA_FAILURE", errorMessage);
+                return;
+            }
             
             // Return only orchestration data to process (no business data)
             Map<String, Object> orchestrationResult = Map.of(
@@ -89,6 +120,7 @@ public class FetchInstrumentDataTaskWorker implements ExternalTaskHandler {
                 TASK_COMPLETED, true,
                 COMPLETED_AT, System.currentTimeMillis(),
                 INSTRUMENTS_REQUESTED, input.instrumentCodes().size(),
+                INSTRUMENTS_PROCESSED, marketDataResponse.instrumentData().size(),
                 LAUNCH_NEW_INSTRUMENTS, input.isLaunchNew(),
                 DATA_SOURCE, input.dataSource().getCode()
             );

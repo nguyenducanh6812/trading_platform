@@ -18,6 +18,11 @@ public interface ARIMAModelRepository {
     Optional<ARIMAModel> findActiveModelByInstrument(TradingInstrument instrument);
     
     /**
+     * Finds ARIMA model by instrument and specific model version
+     */
+    Optional<ARIMAModel> findByInstrumentAndVersion(TradingInstrument instrument, String modelVersion);
+    
+    /**
      * Finds all active ARIMA models
      */
     List<ARIMAModel> findAllActiveModels();

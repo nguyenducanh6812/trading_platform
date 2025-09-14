@@ -90,6 +90,7 @@ market-data:
 logging:
   level:
     com.ahd.trading_platform.marketdata: DEBUG
+    com.ahd.trading_platform.forecasting: DEBUG
     org.camunda.bpm.client: INFO
     org.springframework.cloud.openfeign: DEBUG
     org.hibernate.SQL: DEBUG

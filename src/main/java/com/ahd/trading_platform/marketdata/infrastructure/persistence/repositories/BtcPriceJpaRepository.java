@@ -89,4 +89,13 @@ public interface BtcPriceJpaRepository extends JpaRepository<BtcPriceEntity, Lon
         @Param("fromTime") Instant fromTime, 
         @Param("toTime") Instant toTime,
         org.springframework.data.domain.Pageable pageable);
+    
+    /**
+     * Finds only timestamps within a time range for gap detection
+     * This is much more efficient than loading full entities when we only need timestamps
+     */
+    @Query("SELECT bp.timestamp FROM BtcPriceEntity bp WHERE bp.timestamp >= :fromTime AND bp.timestamp <= :toTime ORDER BY bp.timestamp ASC")
+    List<Instant> findTimestampsByDateRange(
+        @Param("fromTime") Instant fromTime, 
+        @Param("toTime") Instant toTime);
 }

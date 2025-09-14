@@ -1,0 +1,95 @@
+{
+  "components": [
+    {
+      "label": "First Instrument",
+      "values": [
+        {
+          "label": "BTC",
+          "value": "BTC"
+        },
+        {
+          "label": "ETH",
+          "value": "ETH"
+        }
+      ],
+      "type": "select",
+      "layout": {
+        "row": "Row_0q7xjec",
+        "columns": null
+      },
+      "id": "Field_1s88fkg",
+      "key": "select_FirstInstrument",
+      "defaultValue": "BTC"
+    },
+    {
+      "label": "Second Instrument",
+      "values": [
+        {
+          "label": "BTC",
+          "value": "BTC"
+        },
+        {
+          "label": "ETH",
+          "value": "ETH"
+        }
+      ],
+      "type": "select",
+      "layout": {
+        "row": "Row_19j2kyv",
+        "columns": null
+      },
+      "id": "Field_05af10t",
+      "key": "select_SecondInstrument",
+      "defaultValue": "ETH"
+    },
+    {
+      "label": "Expected Return Model",
+      "values": [
+        {
+          "label": "20250904",
+          "value": "20250904"
+        }
+      ],
+      "type": "select",
+      "layout": {
+        "row": "Row_11ay0rr",
+        "columns": null
+      },
+      "id": "Field_13pldua",
+      "key": "select_expected_return_model",
+      "defaultValue": "value"
+    },
+    {
+      "subtype": "date",
+      "dateLabel": "Start Date",
+      "type": "datetime",
+      "layout": {
+        "row": "Row_0zxcxy9",
+        "columns": null
+      },
+      "id": "Field_0xrxmcq",
+      "key": "datetime_start_date"
+    },
+    {
+      "subtype": "date",
+      "dateLabel": "End Date",
+      "type": "datetime",
+      "layout": {
+        "row": "Row_0bhqlel",
+        "columns": null
+      },
+      "id": "Field_0auxymw",
+      "key": "datetime_end_date"
+    }
+  ],
+  "type": "default",
+  "id": "Form_Start_Backtest",
+  "exporter": {
+    "name": "Camunda Modeler",
+    "version": "5.39.0"
+  },
+  "executionPlatform": "Camunda Platform",
+  "executionPlatformVersion": "7.23.0",
+  "versionTag": "1.0.0",
+  "schemaVersion": 19
+}
