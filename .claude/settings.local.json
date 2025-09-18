@@ -21,7 +21,8 @@
       "Bash(netstat:*)",
       "Bash(docker exec:*)",
       "Bash(wmic process where processid=32908 delete:*)",
-      "Bash(wmic process where processid=36256 delete:*)"
+      "Bash(wmic process where processid=36256 delete:*)",
+      "Bash(wmic process where processid=4156 delete:*)"
     ],
     "deny": [],
     "ask": []

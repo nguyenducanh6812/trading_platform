@@ -1,0 +1,36 @@
+I see you still check the arimamodel, instead of expected return data prediction.
+
+try {
+            // Check if ARIMA models exist for both instruments with the specified version
+            boolean firstInstrumentModelExists = arimaModelRepository
+                .findByInstrumentAndVersion(instrumentPair.firstInstrument(), modelVersion.version())
+                .isPresent();
+            
+            boolean secondInstrumentModelExists = arimaModelRepository
+                .findByInstrumentAndVersion(instrumentPair.secondInstrument(), modelVersion.version())
+                .isPresent();
+            
+            if (firstInstrumentModelExists && secondInstrumentModelExists) {
+                String message = String.format(
+                    "Prediction model validation successful. ARIMA model version %s exists for both %s and %s", 
+                    modelVersion.version(),
+                    instrumentPair.firstInstrument().getCode(),
+                    instrumentPair.secondInstrument().getCode()
+                );
+                log.info("Prediction model {} validation successful for pair {}", modelVersion.version(), instrumentPair);
+                return PredictionModelValidationResult.success(message);
+            } else {
+                String failureReason = buildFailureReason(
+                    instrumentPair, firstInstrumentModelExists, secondInstrumentModelExists, modelVersion
+                );
+                log.warn("Prediction model {} validation failed for pair {}: {}", 
+                    modelVersion.version(), instrumentPair, failureReason);
+                return PredictionModelValidationResult.failure(failureReason);
+            }
+
+        } catch (Exception e) {
+            String errorMessage = "Failed to validate prediction model data: " + e.getMessage();
+            log.error("Error validating prediction model {} for pair {}: {}",
+                modelVersion.version(), instrumentPair, errorMessage, e);
+            return PredictionModelValidationResult.failure(errorMessage);
+        }

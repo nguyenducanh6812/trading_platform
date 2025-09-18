@@ -3,15 +3,18 @@ package com.ahd.trading_platform.forecasting.infrastructure.persistence.reposito
 import com.ahd.trading_platform.shared.valueobjects.TradingInstrument;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Component;
 
 /**
  * Factory for getting asset-specific expected return prediction repositories.
  * Uses strategy pattern to provide the correct repository implementation for each trading instrument.
+ * Exposed as a named interface for cross-module access.
  */
 @Component
 @RequiredArgsConstructor
 @Slf4j
+@NamedInterface("prediction-repositories")
 public class AssetSpecificPredictionRepositoryFactory {
     
     private final BtcExpectedReturnPredictionRepositoryImpl btcRepository;
