@@ -5,7 +5,9 @@ import com.ahd.trading_platform.marketdata.domain.valueobjects.*;
 import com.ahd.trading_platform.marketdata.domain.valueobjects.DataQualityMetrics;
 import com.ahd.trading_platform.marketdata.domain.events.MarketDataUpdatedEvent;
 import lombok.*;
+import org.springframework.modulith.NamedInterface;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -13,54 +15,87 @@ import java.util.stream.Collectors;
 /**
  * MarketInstrument aggregate root representing a tradable financial instrument (BTC, ETH, etc.).
  * Manages historical price data and provides domain operations for data analysis.
+ * Exposed to other modules through the domain-api interface.
  */
+@NamedInterface("domain-api")
 public class MarketInstrument {
+    // Basic identification
+    @Getter
     private final String symbol;
+    @Getter
+    @Setter
+    private String contractType;
+    @Getter
     private final String name;
+    @Getter
     private final String baseCurrency;
+    @Getter
     private final String quoteCurrency;
+    @Getter
+    @Setter
+    private String settleCoin;
+    @Getter
+    @Setter
+    private Market market;
+
+    // Trading specifications
+    @Getter
+    @Setter
+    private Long launchTime;
+    @Getter
+    @Setter
+    private Long deliveryTime;
+    @Getter
+    @Setter
+    private BigDecimal minLeverage;
+    @Getter
+    @Setter
+    private BigDecimal maxLeverage;
+    @Getter
+    @Setter
+    private BigDecimal minOrderQty;
+    @Getter
+    @Setter
+    private BigDecimal maxOrderQty;
+    @Getter
+    @Setter
+    private BigDecimal qtyStep;
+    @Getter
+    @Setter
+    private BigDecimal tickSize;
+
+    // Price data and quality
     private final List<OHLCV> priceHistory;
+    @Setter
+    @Getter
     private DataQualityMetrics qualityMetrics;
+    @Getter
     private Instant lastUpdated;
+    private Instant firstTradingDate;
     private final List<MarketDataUpdatedEvent> domainEvents;
 
     public MarketInstrument(String symbol, String name, String baseCurrency, String quoteCurrency) {
+        this(symbol, name, baseCurrency, quoteCurrency, null);
+    }
+
+    public MarketInstrument(String symbol, String name, String baseCurrency, String quoteCurrency, Market market) {
         this.symbol = Objects.requireNonNull(symbol, "Symbol cannot be null");
         this.name = Objects.requireNonNull(name, "Name cannot be null");
         this.baseCurrency = Objects.requireNonNull(baseCurrency, "Base currency cannot be null");
         this.quoteCurrency = Objects.requireNonNull(quoteCurrency, "Quote currency cannot be null");
+        this.market = market;  // Can be null initially, set later
         this.priceHistory = new ArrayList<>();
         this.domainEvents = new ArrayList<>();
         this.lastUpdated = Instant.now();
     }
 
-    // Getter methods
-    public String getSymbol() {
-        return symbol;
+    public MarketInstrument(String symbol, String name, String baseCurrency, String quoteCurrency, Market market, Instant firstTradingDate) {
+        this(symbol, name, baseCurrency, quoteCurrency, market);
+        this.firstTradingDate = firstTradingDate;
     }
 
-    public String getName() {
-        return name;
-    }
-
-    public String getBaseCurrency() {
-        return baseCurrency;
-    }
-
-    public String getQuoteCurrency() {
-        return quoteCurrency;
-    }
-
-    public DataQualityMetrics getQualityMetrics() {
-        return qualityMetrics;
-    }
-
-    public void setQualityMetrics(DataQualityMetrics qualityMetrics) {
-        this.qualityMetrics = qualityMetrics;
-    }
-
-    public Instant getLastUpdated() {
-        return lastUpdated;
+    public Optional<Instant> getFirstTradingDate() {
+        return Optional.ofNullable(firstTradingDate);
     }
 
     public List<MarketDataUpdatedEvent> getDomainEvents() {
@@ -247,9 +282,30 @@ public class MarketInstrument {
             existingDataMap.put(newOhlcv.timestamp(), newOhlcv);
         }
 
-        // Replace price history with merged data
+        // Replace price history with merged data, sorted by timestamp
         priceHistory.clear();
-        priceHistory.addAll(existingDataMap.values());
+        List<OHLCV> sortedMergedData = existingDataMap.values().stream()
+                .sorted(Comparator.comparing(OHLCV::timestamp))
+                .toList();
+        priceHistory.addAll(sortedMergedData);
+    }
+
+    /**
+     * Sets the first trading date for this instrument.
+     * This should only be called when we discover the actual first trading date
+     * through API error responses indicating no data is available for earlier dates.
+     * 
+     * @param firstTradingDate The confirmed first trading date for this instrument
+     */
+    public void setFirstTradingDate(Instant firstTradingDate) {
+        if (firstTradingDate == null) {
+            throw new IllegalArgumentException("First trading date cannot be null");
+        }
+        
+        // Only set if not already set, or if the new date is earlier (more accurate)
+        if (this.firstTradingDate == null || firstTradingDate.isBefore(this.firstTradingDate)) {
+            this.firstTradingDate = firstTradingDate;
+        }
     }
 
     private void updateQualityMetrics(String dataSource) {

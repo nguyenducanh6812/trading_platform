@@ -17,6 +17,7 @@ public final class ProcessVariables {
     public static final String END_DATE = "endDate";
     public static final String LAUNCH_NEW_INSTRUMENTS = "launchNewInstruments";
     public static final String RESOURCE = "resource";
+    public static final String AR_ORDER = "arOrder"; // ARIMA model AR order for backtesting data preparation
     
     // Output variables
     public static final String EXECUTION_ID = "executionId";

@@ -1,0 +1,21 @@
+# Development Profile Configuration
+# Use: ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+# Or set: SPRING_PROFILES_ACTIVE=dev
+
+logging:
+  level:
+    com.ahd.trading_platform.marketdata: DEBUG
+    com.ahd.trading_platform.forecasting: DEBUG
+    com.ahd.trading_platform.backtesting: DEBUG
+    org.camunda.bpm.client: INFO
+    org.springframework.cloud.openfeign: DEBUG
+    org.hibernate.SQL: INFO
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%logger{36}] - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%logger{36}] - %msg%n"
+  file:
+    name: logs/trading-platform.log
+    max-size: 100MB
+    max-history: 30
+  # File logging is OK for development

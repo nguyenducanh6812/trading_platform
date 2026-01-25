@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- ========================================= -->
+    <!-- Spring Modulith Event Publication        -->
+    <!-- ========================================= -->
+
+    <changeSet id="001h-create-event-publication-table" author="trading-platform-team">
+        <comment>Create EVENT_PUBLICATION table required by Spring Modulith for event-driven module communication</comment>
+
+        <createTable schemaName="trading_platform" tableName="event_publication">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" primaryKeyName="pk_event_publication"/>
+            </column>
+            <column name="listener_id" type="VARCHAR(512)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="event_type" type="VARCHAR(512)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="serialized_event" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="publication_date" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="completion_date" type="TIMESTAMP WITH TIME ZONE"/>
+        </createTable>
+
+        <createIndex schemaName="trading_platform" tableName="event_publication" indexName="idx_event_publication_serialized_event_hash">
+            <column name="serialized_event" computed="true"/>
+        </createIndex>
+        <createIndex schemaName="trading_platform" tableName="event_publication" indexName="idx_event_publication_publication_date">
+            <column name="publication_date"/>
+        </createIndex>
+        <createIndex schemaName="trading_platform" tableName="event_publication" indexName="idx_event_publication_completion_date">
+            <column name="completion_date"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable schemaName="trading_platform" tableName="event_publication" cascadeConstraints="true"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

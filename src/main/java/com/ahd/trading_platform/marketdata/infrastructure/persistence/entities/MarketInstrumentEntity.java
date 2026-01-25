@@ -6,6 +6,8 @@ import com.ahd.trading_platform.marketdata.domain.valueobjects.*;
 import lombok.*;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Objects;
 
 /**
@@ -15,11 +17,13 @@ import java.util.Objects;
 @Entity
 @Table(
     name = "market_instruments",
+    schema = "trading_platform",
     uniqueConstraints = @UniqueConstraint(columnNames = "symbol"),
     indexes = {
         @Index(name = "idx_market_instrument_symbol", columnList = "symbol"),
         @Index(name = "idx_market_instrument_base_currency", columnList = "base_currency"),
-        @Index(name = "idx_market_instrument_quote_currency", columnList = "quote_currency")
+        @Index(name = "idx_market_instrument_quote_currency", columnList = "quote_currency"),
+        @Index(name = "idx_market_instruments_first_trading_date", columnList = "first_trading_date")
     }
 )
 @EntityListeners(AuditingEntityListener.class)
@@ -34,17 +38,47 @@ public class MarketInstrumentEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    @Column(name = "symbol", nullable = false, unique = true, length = 10)
+    @Column(name = "symbol", nullable = false, unique = true, length = 30)
     private String symbol;
-    
+
+    @Column(name = "contract_type", length = 30)
+    private String contractType;
+
     @Column(name = "name", nullable = false, length = 100)
     private String name;
-    
+
     @Column(name = "base_currency", nullable = false, length = 10)
     private String baseCurrency;
-    
-    @Column(name = "quote_currency", nullable = false, length = 10) 
+
+    @Column(name = "quote_currency", nullable = false, length = 10)
     private String quoteCurrency;
+
+    @Column(name = "settle_coin", length = 10)
+    private String settleCoin;
+
+    @Column(name = "launch_time")
+    private Long launchTime;
+
+    @Column(name = "delivery_time")
+    private Long deliveryTime;
+
+    @Column(name = "min_leverage", precision = 10, scale = 2)
+    private BigDecimal minLeverage;
+
+    @Column(name = "max_leverage", precision = 10, scale = 2)
+    private BigDecimal maxLeverage;
+
+    @Column(name = "min_order_qty", precision = 20, scale = 8)
+    private BigDecimal minOrderQty;
+
+    @Column(name = "max_order_qty", precision = 20, scale = 8)
+    private BigDecimal maxOrderQty;
+
+    @Column(name = "qty_step", precision = 20, scale = 8)
+    private BigDecimal qtyStep;
+
+    @Column(name = "tick_size", precision = 20, scale = 8)
+    private BigDecimal tickSize;
     
     @Column(name = "data_point_count", nullable = false)
     private Integer dataPointCount = 0;
@@ -57,7 +91,14 @@ public class MarketInstrumentEntity {
     
     @Column(name = "data_source", length = 50)
     private String dataSource;
-    
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "market_id", nullable = false)
+    private MarketEntity market;
+
+    @Column(name = "first_trading_date")
+    private Instant firstTradingDate;
+
     @Embedded
     private AuditInfo auditInfo = new AuditInfo();
     

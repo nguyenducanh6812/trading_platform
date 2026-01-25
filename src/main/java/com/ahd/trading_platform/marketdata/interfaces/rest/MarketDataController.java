@@ -1,7 +1,11 @@
 package com.ahd.trading_platform.marketdata.interfaces.rest;
 
+import com.ahd.trading_platform.marketdata.application.dto.AvailableInstrumentsResponse;
+import com.ahd.trading_platform.marketdata.application.dto.GetInstrumentsByMarketRequest;
+import com.ahd.trading_platform.marketdata.application.dto.InstrumentsByMarketResponse;
 import com.ahd.trading_platform.marketdata.application.dto.MarketDataRequest;
 import com.ahd.trading_platform.marketdata.application.dto.MarketDataResponse;
+import com.ahd.trading_platform.marketdata.application.dto.MarketResponse;
 import com.ahd.trading_platform.marketdata.application.services.MarketDataApplicationService;
 import com.ahd.trading_platform.marketdata.domain.entities.MarketInstrument;
 
@@ -74,21 +78,29 @@ public class MarketDataController {
     }
     
     /**
-     * Retrieves all available market instruments
+     * Retrieves all available market instruments using database-first strategy.
+     * Fetches from database cache first (fast), only fetches from external API if database is empty.
+     * Database is updated asynchronously when fetching from external source.
      */
     @GetMapping("/instruments")
     @Operation(
-        summary = "Get all market instruments",
-        description = "Retrieves a list of all available market instruments with their metadata"
+        summary = "Get available instruments",
+        description = "Fetches available trading instruments using database-first strategy for better performance. " +
+                      "Returns cached data from database if available (typical case, ~10-50ms). " +
+                      "Only fetches from external API (Bybit) if database is empty. " +
+                      "Returns instrument code and name for UI combobox. " +
+                      "Database is updated asynchronously when using external source."
     )
     @ApiResponse(responseCode = "200", description = "Successfully retrieved instruments")
-    public ResponseEntity<List<MarketInstrument>> getAllInstruments() {
-        
-        logger.debug("Retrieving all market instruments");
-        
-        List<MarketInstrument> instruments = applicationService.getAllInstruments();
-        
-        return ResponseEntity.ok(instruments);
+    public ResponseEntity<AvailableInstrumentsResponse> getAllInstruments(
+        @Parameter(description = "Data source provider", example = "bybit")
+        @RequestParam(value = "source", defaultValue = "bybit") String source
+    ) {
+        logger.info("Fetching available instruments from source: {}", source);
+
+        AvailableInstrumentsResponse response = applicationService.getAvailableInstruments(source);
+
+        return ResponseEntity.ok(response);
     }
     
     /**
@@ -128,20 +140,64 @@ public class MarketDataController {
     public ResponseEntity<DataSufficiencyResponse> checkDataSufficiency(
         @Parameter(description = "Instrument symbol", example = "BTC")
         @PathVariable String symbol) {
-        
+
         logger.debug("Checking data sufficiency for: {}", symbol);
-        
+
         boolean hasSufficientData = applicationService.hasInstrumentSufficientData(symbol);
         long dataPointCount = applicationService.getInstrumentDataCount(symbol);
-        
+
         DataSufficiencyResponse response = new DataSufficiencyResponse(
             symbol, hasSufficientData, dataPointCount,
             hasSufficientData ? "SUFFICIENT" : "INSUFFICIENT"
         );
-        
+
         return ResponseEntity.ok(response);
     }
-    
+
+    /**
+     * Retrieves all available markets
+     */
+    @GetMapping("/markets")
+    @Operation(
+        summary = "Get all markets",
+        description = "Retrieves list of all available trading markets (SPOT, LINEAR, INVERSE, OPTION)"
+    )
+    @ApiResponse(responseCode = "200", description = "Successfully retrieved markets")
+    public ResponseEntity<List<MarketResponse>> getAllMarkets() {
+        logger.debug("Fetching all markets");
+
+        List<MarketResponse> markets = applicationService.getAllMarkets();
+
+        return ResponseEntity.ok(markets);
+    }
+
+    /**
+     * Retrieves instruments for a specific market using database-first strategy.
+     * Fetches from database cache first (fast), only fetches from external API if database is empty.
+     * Database is updated asynchronously when fetching from external source.
+     * Frontend provides market details to avoid extra database query.
+     */
+    @PostMapping("/markets/instruments")
+    @Operation(
+        summary = "Get instruments by market",
+        description = "Retrieves all trading instruments available in the specified market using database-first strategy. " +
+                      "Returns cached data from database if available (typical case, ~10-50ms). " +
+                      "Only fetches from external API (Bybit) if database is empty. " +
+                      "Database is updated asynchronously when using external source. " +
+                      "Circuit Breaker protects against API failures. " +
+                      "Frontend sends market details (ID, code, name) to optimize performance by avoiding database lookup."
+    )
+    @ApiResponse(responseCode = "200", description = "Successfully retrieved instruments")
+    @ApiResponse(responseCode = "400", description = "Invalid request")
+    public ResponseEntity<InstrumentsByMarketResponse> getInstrumentsByMarket(
+        @Valid @RequestBody GetInstrumentsByMarketRequest request) {
+
+        logger.debug("Fetching instruments for market: {} (ID: {})", request.marketCode(), request.marketId());
+
+        InstrumentsByMarketResponse response = applicationService.getInstrumentsByMarket(request);
+        return ResponseEntity.ok(response);
+    }
+
     /**
      * Health check endpoint
      */

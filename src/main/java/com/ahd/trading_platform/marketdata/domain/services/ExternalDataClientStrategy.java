@@ -1,5 +1,6 @@
 package com.ahd.trading_platform.marketdata.domain.services;
 
+import com.ahd.trading_platform.marketdata.application.dto.InstrumentInfo;
 import com.ahd.trading_platform.shared.valueobjects.OHLCV;
 import com.ahd.trading_platform.shared.valueobjects.TimeRange;
 
@@ -40,4 +41,13 @@ public interface ExternalDataClientStrategy {
      * Checks if the external API is healthy and responsive
      */
     boolean isHealthy();
+
+    /**
+     * Fetches available trading instruments from external source.
+     * Returns simple instrument info (code and name) for UI combobox components.
+     * Only includes actively trading instruments.
+     *
+     * @return List of available instruments with code and name
+     */
+    List<InstrumentInfo> fetchAvailableInstruments();
 }

@@ -13,8 +13,6 @@ public record ForecastMetrics(
     double meanSquaredError,
     double standardError,
     Duration executionTime,
-    Instant dataRangeStart,
-    Instant dataRangeEnd,
     String modelVersion
 ) {
     
@@ -34,15 +32,6 @@ public record ForecastMetrics(
         if (executionTime == null || executionTime.isNegative()) {
             throw new IllegalArgumentException("Execution time must be positive");
         }
-        if (dataRangeStart == null) {
-            throw new IllegalArgumentException("Data range start cannot be null");
-        }
-        if (dataRangeEnd == null) {
-            throw new IllegalArgumentException("Data range end cannot be null");
-        }
-        if (dataRangeStart.isAfter(dataRangeEnd)) {
-            throw new IllegalArgumentException("Data range start must be before end");
-        }
         if (modelVersion == null || modelVersion.trim().isEmpty()) {
             throw new IllegalArgumentException("Model version cannot be null or empty");
         }
@@ -57,23 +46,21 @@ public record ForecastMetrics(
             double meanSquaredError,
             double standardError,
             Duration executionTime,
-            Instant dataRangeStart,
-            Instant dataRangeEnd,
             String modelVersion) {
-        
+
         return new ForecastMetrics(
             dataPointsUsed, arOrder, meanSquaredError, standardError,
-            executionTime, dataRangeStart, dataRangeEnd, modelVersion
+            executionTime, modelVersion
         );
     }
     
     /**
-     * Gets the data range duration in days
+     * Gets the data range duration in days (assuming AR order + 1 preparation days)
      */
     public long getDataRangeDays() {
-        return Duration.between(dataRangeStart, dataRangeEnd).toDays();
+        return arOrder + 1; // ARIMA preparation days
     }
-    
+
     /**
      * Calculates the average data points per day
      */

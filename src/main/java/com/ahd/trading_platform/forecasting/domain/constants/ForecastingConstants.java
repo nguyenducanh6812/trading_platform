@@ -17,6 +17,10 @@ public final class ForecastingConstants {
     public static final int DEFAULT_ARIMA_P_ORDER = 30; // 30 AR coefficients
     public static final int DEFAULT_ARIMA_D_ORDER = 0;  // No differencing (using diff_oc directly)
     public static final int DEFAULT_ARIMA_Q_ORDER = 0;  // No moving average terms
+
+    // ARIMA Data Preparation Constants
+    public static final int ARIMA_MODEL_PREPARATION_DAYS = 30; // Days needed for AR(30) model
+    // Note: diff OC calculation uses the same historical data, no additional days needed
     
     // Statistical Configuration
     public static final int CALCULATION_PRECISION = 10;

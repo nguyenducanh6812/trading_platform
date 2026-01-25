@@ -1,0 +1,434 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- ========================================= -->
+    <!-- Strategy Module Tables                    -->
+    <!-- ========================================= -->
+
+    <changeSet id="005a-create-strategies-table" author="trading-platform-team">
+        <comment>Create strategies table for available trading strategies</comment>
+
+        <createTable schemaName="trading_platform" tableName="strategies">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" primaryKeyName="pk_strategies"/>
+            </column>
+            <column name="code" type="VARCHAR(50)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uk_strategies_code"/>
+            </column>
+            <column name="name" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="VARCHAR(500)"/>
+            <column name="category" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="active" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- Indexes for strategy queries -->
+        <createIndex schemaName="trading_platform" tableName="strategies" indexName="idx_strategy_code">
+            <column name="code"/>
+        </createIndex>
+        <createIndex schemaName="trading_platform" tableName="strategies" indexName="idx_strategy_category">
+            <column name="category"/>
+        </createIndex>
+        <createIndex schemaName="trading_platform" tableName="strategies" indexName="idx_strategy_active">
+            <column name="active"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable schemaName="trading_platform" tableName="strategies" cascadeConstraints="true"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="005b-create-strategy-parameters-table" author="trading-platform-team">
+        <comment>Create strategy_parameters table for parameter schema of each strategy</comment>
+
+        <createTable schemaName="trading_platform" tableName="strategy_parameters">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" primaryKeyName="pk_strategy_parameters"/>
+            </column>
+            <column name="strategy_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="code" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="data_type" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="default_value" type="VARCHAR(100)"/>
+            <column name="required" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="VARCHAR(500)"/>
+            <column name="validation_rule" type="VARCHAR(200)"/>
+        </createTable>
+
+        <!-- Foreign key to strategies -->
+        <addForeignKeyConstraint
+            baseTableSchemaName="trading_platform"
+            baseTableName="strategy_parameters"
+            baseColumnNames="strategy_id"
+            constraintName="fk_strategy_parameters_strategy"
+            referencedTableSchemaName="trading_platform"
+            referencedTableName="strategies"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+
+        <!-- Index for queries -->
+        <createIndex schemaName="trading_platform" tableName="strategy_parameters" indexName="idx_param_strategy_id">
+            <column name="strategy_id"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable schemaName="trading_platform" tableName="strategy_parameters" cascadeConstraints="true"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="005c-create-strategy-dependencies-table" author="trading-platform-team">
+        <comment>Create strategy_dependencies table for strategy dependencies (e.g., MPT depends on FORECASTING)</comment>
+
+        <createTable schemaName="trading_platform" tableName="strategy_dependencies">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" primaryKeyName="pk_strategy_dependencies"/>
+            </column>
+            <column name="strategy_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="category" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="required" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="VARCHAR(500)"/>
+        </createTable>
+
+        <!-- Foreign key to strategies -->
+        <addForeignKeyConstraint
+            baseTableSchemaName="trading_platform"
+            baseTableName="strategy_dependencies"
+            baseColumnNames="strategy_id"
+            constraintName="fk_strategy_dependencies_strategy"
+            referencedTableSchemaName="trading_platform"
+            referencedTableName="strategies"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+
+        <!-- Index for queries -->
+        <createIndex schemaName="trading_platform" tableName="strategy_dependencies" indexName="idx_dep_strategy_id">
+            <column name="strategy_id"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable schemaName="trading_platform" tableName="strategy_dependencies" cascadeConstraints="true"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="005d-create-portfolio-strategy-configurations-table" author="trading-platform-team">
+        <comment>Create portfolio_strategy_configurations table for strategy configurations applied to portfolios</comment>
+
+        <createTable schemaName="trading_platform" tableName="portfolio_strategy_configurations">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" primaryKeyName="pk_portfolio_strategy_configurations"/>
+            </column>
+            <column name="portfolio_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="strategy_code" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="category" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="parent_configuration_id" type="BIGINT"/>
+            <column name="active" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- Foreign key to itself for hierarchical configurations -->
+        <addForeignKeyConstraint
+            baseTableSchemaName="trading_platform"
+            baseTableName="portfolio_strategy_configurations"
+            baseColumnNames="parent_configuration_id"
+            constraintName="fk_config_parent"
+            referencedTableSchemaName="trading_platform"
+            referencedTableName="portfolio_strategy_configurations"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+
+        <!-- Indexes for configuration queries -->
+        <createIndex schemaName="trading_platform" tableName="portfolio_strategy_configurations" indexName="idx_config_portfolio_id">
+            <column name="portfolio_id"/>
+        </createIndex>
+        <createIndex schemaName="trading_platform" tableName="portfolio_strategy_configurations" indexName="idx_config_strategy_code">
+            <column name="strategy_code"/>
+        </createIndex>
+        <createIndex schemaName="trading_platform" tableName="portfolio_strategy_configurations" indexName="idx_config_parent_id">
+            <column name="parent_configuration_id"/>
+        </createIndex>
+        <createIndex schemaName="trading_platform" tableName="portfolio_strategy_configurations" indexName="idx_config_active">
+            <column name="active"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable schemaName="trading_platform" tableName="portfolio_strategy_configurations" cascadeConstraints="true"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="005e-create-strategy-parameter-values-table" author="trading-platform-team">
+        <comment>Create strategy_parameter_values table for actual parameter values configured by users</comment>
+
+        <createTable schemaName="trading_platform" tableName="strategy_parameter_values">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" primaryKeyName="pk_strategy_parameter_values"/>
+            </column>
+            <column name="configuration_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="parameter_code" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="parameter_value" type="VARCHAR(200)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- Foreign key to portfolio_strategy_configurations -->
+        <addForeignKeyConstraint
+            baseTableSchemaName="trading_platform"
+            baseTableName="strategy_parameter_values"
+            baseColumnNames="configuration_id"
+            constraintName="fk_param_value_config"
+            referencedTableSchemaName="trading_platform"
+            referencedTableName="portfolio_strategy_configurations"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+
+        <!-- Indexes for parameter value queries -->
+        <createIndex schemaName="trading_platform" tableName="strategy_parameter_values" indexName="idx_param_value_config_id">
+            <column name="configuration_id"/>
+        </createIndex>
+        <createIndex schemaName="trading_platform" tableName="strategy_parameter_values" indexName="idx_param_value_param_code">
+            <column name="parameter_code"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable schemaName="trading_platform" tableName="strategy_parameter_values" cascadeConstraints="true"/>
+        </rollback>
+    </changeSet>
+
+    <!-- ========================================= -->
+    <!-- Insert Default Strategies                 -->
+    <!-- ========================================= -->
+
+    <changeSet id="005f-insert-mpt-strategy" author="trading-platform-team">
+        <comment>Insert MPT (Modern Portfolio Theory) strategy</comment>
+
+        <insert schemaName="trading_platform" tableName="strategies">
+            <column name="code" value="MPT"/>
+            <column name="name" value="Modern Portfolio Theory"/>
+            <column name="description" value="Optimizes portfolio allocation using mean-variance optimization. Requires a forecasting strategy (e.g., ARIMA) to predict expected returns."/>
+            <column name="category" value="PORTFOLIO_OPTIMIZATION"/>
+            <column name="active" valueBoolean="true"/>
+        </insert>
+
+        <rollback>
+            <delete schemaName="trading_platform" tableName="strategies">
+                <where>code = 'MPT'</where>
+            </delete>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="005g-insert-mpt-parameters" author="trading-platform-team">
+        <comment>Insert MPT strategy parameters</comment>
+
+        <insert schemaName="trading_platform" tableName="strategy_parameters">
+            <column name="strategy_id" valueComputed="(SELECT id FROM trading_platform.strategies WHERE code = 'MPT')"/>
+            <column name="code" value="riskFreeRate"/>
+            <column name="name" value="Risk-Free Rate"/>
+            <column name="data_type" value="double"/>
+            <column name="default_value" value="0.04"/>
+            <column name="required" valueBoolean="true"/>
+            <column name="description" value="Annual risk-free rate for Sharpe ratio calculation"/>
+        </insert>
+
+        <insert schemaName="trading_platform" tableName="strategy_parameters">
+            <column name="strategy_id" valueComputed="(SELECT id FROM trading_platform.strategies WHERE code = 'MPT')"/>
+            <column name="code" value="optimizationType"/>
+            <column name="name" value="Optimization Type"/>
+            <column name="data_type" value="string"/>
+            <column name="default_value" value="MAX_SHARPE"/>
+            <column name="required" valueBoolean="false"/>
+            <column name="description" value="Type of portfolio optimization (MAX_SHARPE, MIN_VARIANCE, EFFICIENT_FRONTIER)"/>
+        </insert>
+
+        <insert schemaName="trading_platform" tableName="strategy_parameters">
+            <column name="strategy_id" valueComputed="(SELECT id FROM trading_platform.strategies WHERE code = 'MPT')"/>
+            <column name="code" value="constraintsEnabled"/>
+            <column name="name" value="Enable Constraints"/>
+            <column name="data_type" value="boolean"/>
+            <column name="default_value" value="true"/>
+            <column name="required" valueBoolean="false"/>
+            <column name="description" value="Enable position size and leverage constraints"/>
+        </insert>
+
+        <insert schemaName="trading_platform" tableName="strategy_parameters">
+            <column name="strategy_id" valueComputed="(SELECT id FROM trading_platform.strategies WHERE code = 'MPT')"/>
+            <column name="code" value="rebalancingThreshold"/>
+            <column name="name" value="Rebalancing Threshold"/>
+            <column name="data_type" value="double"/>
+            <column name="default_value" value="0.05"/>
+            <column name="required" valueBoolean="false"/>
+            <column name="description" value="Trigger rebalancing when drift exceeds this percentage"/>
+        </insert>
+
+        <rollback>
+            <delete schemaName="trading_platform" tableName="strategy_parameters">
+                <where>strategy_id = (SELECT id FROM trading_platform.strategies WHERE code = 'MPT')</where>
+            </delete>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="005h-insert-mpt-dependencies" author="trading-platform-team">
+        <comment>Insert MPT strategy dependencies</comment>
+
+        <insert schemaName="trading_platform" tableName="strategy_dependencies">
+            <column name="strategy_id" valueComputed="(SELECT id FROM trading_platform.strategies WHERE code = 'MPT')"/>
+            <column name="category" value="FORECASTING"/>
+            <column name="required" valueBoolean="true"/>
+            <column name="description" value="Price forecasting strategy for expected returns"/>
+        </insert>
+
+        <rollback>
+            <delete schemaName="trading_platform" tableName="strategy_dependencies">
+                <where>strategy_id = (SELECT id FROM trading_platform.strategies WHERE code = 'MPT')</where>
+            </delete>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="005i-insert-arima-strategy" author="trading-platform-team">
+        <comment>Insert ARIMA forecasting strategy</comment>
+
+        <insert schemaName="trading_platform" tableName="strategies">
+            <column name="code" value="ARIMA"/>
+            <column name="name" value="ARIMA Forecasting"/>
+            <column name="description" value="Time series forecasting using AutoRegressive Integrated Moving Average model. Used by portfolio optimization strategies to predict expected returns."/>
+            <column name="category" value="FORECASTING"/>
+            <column name="active" valueBoolean="true"/>
+        </insert>
+
+        <rollback>
+            <delete schemaName="trading_platform" tableName="strategies">
+                <where>code = 'ARIMA'</where>
+            </delete>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="005j-insert-arima-parameters" author="trading-platform-team">
+        <comment>Insert ARIMA strategy parameters</comment>
+
+        <insert schemaName="trading_platform" tableName="strategy_parameters">
+            <column name="strategy_id" valueComputed="(SELECT id FROM trading_platform.strategies WHERE code = 'ARIMA')"/>
+            <column name="code" value="p"/>
+            <column name="name" value="AR Order"/>
+            <column name="data_type" value="integer"/>
+            <column name="default_value" value="1"/>
+            <column name="required" valueBoolean="true"/>
+            <column name="description" value="AutoRegressive order"/>
+        </insert>
+
+        <insert schemaName="trading_platform" tableName="strategy_parameters">
+            <column name="strategy_id" valueComputed="(SELECT id FROM trading_platform.strategies WHERE code = 'ARIMA')"/>
+            <column name="code" value="d"/>
+            <column name="name" value="Differencing Order"/>
+            <column name="data_type" value="integer"/>
+            <column name="default_value" value="1"/>
+            <column name="required" valueBoolean="true"/>
+            <column name="description" value="Degree of differencing"/>
+        </insert>
+
+        <insert schemaName="trading_platform" tableName="strategy_parameters">
+            <column name="strategy_id" valueComputed="(SELECT id FROM trading_platform.strategies WHERE code = 'ARIMA')"/>
+            <column name="code" value="q"/>
+            <column name="name" value="MA Order"/>
+            <column name="data_type" value="integer"/>
+            <column name="default_value" value="1"/>
+            <column name="required" valueBoolean="true"/>
+            <column name="description" value="Moving Average order"/>
+        </insert>
+
+        <insert schemaName="trading_platform" tableName="strategy_parameters">
+            <column name="strategy_id" valueComputed="(SELECT id FROM trading_platform.strategies WHERE code = 'ARIMA')"/>
+            <column name="code" value="forecastHorizon"/>
+            <column name="name" value="Forecast Horizon"/>
+            <column name="data_type" value="integer"/>
+            <column name="default_value" value="30"/>
+            <column name="required" valueBoolean="false"/>
+            <column name="description" value="Number of days to forecast"/>
+        </insert>
+
+        <insert schemaName="trading_platform" tableName="strategy_parameters">
+            <column name="strategy_id" valueComputed="(SELECT id FROM trading_platform.strategies WHERE code = 'ARIMA')"/>
+            <column name="code" value="confidenceLevel"/>
+            <column name="name" value="Confidence Level"/>
+            <column name="data_type" value="double"/>
+            <column name="default_value" value="0.95"/>
+            <column name="required" valueBoolean="false"/>
+            <column name="description" value="Confidence level for prediction intervals"/>
+        </insert>
+
+        <rollback>
+            <delete schemaName="trading_platform" tableName="strategy_parameters">
+                <where>strategy_id = (SELECT id FROM trading_platform.strategies WHERE code = 'ARIMA')</where>
+            </delete>
+        </rollback>
+    </changeSet>
+
+    <!-- Add table comments for documentation -->
+    <changeSet id="005k-add-table-comments" author="trading-platform-team">
+        <comment>Add table comments for documentation</comment>
+
+        <sql>
+            COMMENT ON TABLE trading_platform.strategies IS 'Master list of available trading strategies';
+            COMMENT ON TABLE trading_platform.strategy_parameters IS 'Parameter schema for each strategy';
+            COMMENT ON TABLE trading_platform.strategy_dependencies IS 'Strategy dependencies (e.g., MPT depends on FORECASTING)';
+            COMMENT ON TABLE trading_platform.portfolio_strategy_configurations IS 'Strategy configurations applied to portfolios';
+            COMMENT ON TABLE trading_platform.strategy_parameter_values IS 'Actual parameter values configured by users';
+        </sql>
+
+        <rollback>
+            <sql>
+                COMMENT ON TABLE trading_platform.strategies IS NULL;
+                COMMENT ON TABLE trading_platform.strategy_parameters IS NULL;
+                COMMENT ON TABLE trading_platform.strategy_dependencies IS NULL;
+                COMMENT ON TABLE trading_platform.portfolio_strategy_configurations IS NULL;
+                COMMENT ON TABLE trading_platform.strategy_parameter_values IS NULL;
+            </sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

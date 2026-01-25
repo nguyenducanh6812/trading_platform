@@ -65,10 +65,10 @@ public class ARIMACalculationService {
             throw new IllegalArgumentException("ARIMA model cannot be null");
         }
         
-        if (!model.getInstrument().equals(instrument)) {
+        if (!model.getSymbol().equals(instrument.getCode())) {
             throw new IllegalArgumentException(
-                String.format("Model instrument (%s) does not match requested instrument (%s)",
-                    model.getInstrument().getCode(), instrument.getCode()));
+                String.format("Model symbol (%s) does not match requested instrument (%s)",
+                    model.getSymbol(), instrument.getCode()));
         }
         
         model.validateForForecasting(priceData.size());

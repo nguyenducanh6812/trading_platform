@@ -1,7 +1,7 @@
 ---
-name: mpt-trading-system-architect
+name: mpt-trading
 description: Use this agent when building or enhancing Modern Portfolio Theory (MPT) trading systems using Spring Boot and Camunda 7. Examples: <example>Context: User is developing a new MPT-based trading platform with workflow automation. user: 'I need to implement a portfolio optimization service that calculates efficient frontiers and integrates with our trading workflow' assistant: 'I'll use the mpt-trading-system-architect agent to design this service following DDD principles and Spring Boot best practices' <commentary>Since the user needs MPT trading system architecture, use the mpt-trading-system-architect agent to provide domain-driven design guidance.</commentary></example> <example>Context: User is refactoring existing trading code to follow better architectural patterns. user: 'Our current portfolio rebalancing logic is tightly coupled and hard to test. How should we restructure it?' assistant: 'Let me engage the mpt-trading-system-architect agent to redesign this with proper separation of concerns and testability' <commentary>The user needs architectural guidance for trading system refactoring, so use the mpt-trading-system-architect agent.</commentary></example>
-model: sonnet
+model: opus
 color: green
 ---
 

@@ -2,7 +2,6 @@ package com.ahd.trading_platform.forecasting.infrastructure.repositories;
 
 import com.ahd.trading_platform.forecasting.domain.entities.ARIMAModel;
 import com.ahd.trading_platform.forecasting.domain.repositories.ARIMAModelRepository;
-import com.ahd.trading_platform.shared.valueobjects.TradingInstrument;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -27,11 +26,12 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 /**
  * Loads ARIMA master data from JSON files and maintains in-memory cache.
  * Provides high-performance access to ARIMA models for forecasting operations.
+ * Supports all trading symbols across all markets (SPOT, LINEAR, INVERSE, OPTION).
  */
 @Component
 @Slf4j
 public class ARIMAMasterDataLoader implements ARIMAModelRepository {
-    
+
     private final ObjectMapper objectMapper;
     private final Map<ModelKey, ARIMAModel> modelCache = new ConcurrentHashMap<>();
     
@@ -56,85 +56,85 @@ public class ARIMAMasterDataLoader implements ARIMAModelRepository {
     }
     
     @Override
-    public Optional<ARIMAModel> findActiveModelByInstrument(TradingInstrument instrument) {
-        // Find the first (any) model for this instrument - this is for backward compatibility
+    public Optional<ARIMAModel> findActiveModelBySymbol(String symbol) {
+        // Find the first (any) model for this symbol - this is for backward compatibility
         // In a real system, you might want to implement a proper "active" model concept
         Optional<ARIMAModel> model = modelCache.entrySet().stream()
-            .filter(entry -> entry.getKey().instrument == instrument)
+            .filter(entry -> entry.getKey().symbol.equals(symbol))
             .map(Map.Entry::getValue)
             .findFirst();
-            
+
         if (model.isPresent()) {
-            log.debug("Retrieved ARIMA model for {} from cache", instrument.getCode());
+            log.debug("Retrieved ARIMA model for {} from cache", symbol);
         } else {
-            log.warn("ARIMA model not found for instrument: {}", instrument.getCode());
+            log.warn("ARIMA model not found for symbol: {}", symbol);
         }
         return model;
     }
-    
+
     @Override
     public ARIMAModel save(ARIMAModel model) {
-        ModelKey key = new ModelKey(model.getInstrument(), model.getModelVersion());
+        ModelKey key = new ModelKey(model.getSymbol(), model.getModelVersion());
         modelCache.put(key, model);
-        log.debug("Cached ARIMA model for {} version {}", model.getInstrument().getCode(), model.getModelVersion());
+        log.debug("Cached ARIMA model for {} version {}", model.getSymbol(), model.getModelVersion());
         return model;
     }
-    
+
     @Override
-    public boolean existsActiveModelForInstrument(TradingInstrument instrument) {
+    public boolean existsActiveModelForSymbol(String symbol) {
         return modelCache.keySet().stream()
-            .anyMatch(key -> key.instrument == instrument);
+            .anyMatch(key -> key.symbol.equals(symbol));
     }
-    
+
     @Override
     public List<ARIMAModel> findAllActiveModels() {
         return modelCache.values().stream().toList();
     }
-    
+
     @Override
-    public List<ARIMAModel> findAllModelsByInstrument(TradingInstrument instrument) {
+    public List<ARIMAModel> findAllModelsBySymbol(String symbol) {
         return modelCache.entrySet().stream()
-            .filter(entry -> entry.getKey().instrument == instrument)
+            .filter(entry -> entry.getKey().symbol.equals(symbol))
             .map(Map.Entry::getValue)
             .toList();
     }
-    
+
     @Override
     public void delete(ARIMAModel model) {
-        ModelKey key = new ModelKey(model.getInstrument(), model.getModelVersion());
+        ModelKey key = new ModelKey(model.getSymbol(), model.getModelVersion());
         modelCache.remove(key);
-        log.debug("Removed ARIMA model for {} version {} from cache", model.getInstrument().getCode(), model.getModelVersion());
+        log.debug("Removed ARIMA model for {} version {} from cache", model.getSymbol(), model.getModelVersion());
     }
-    
+
     @Override
     public Optional<ARIMAModel> findById(Long id) {
         // Since we're using in-memory cache, we don't have IDs
         throw new UnsupportedOperationException("findById not supported for in-memory ARIMA models");
     }
-    
+
     @Override
-    public List<ARIMAModel> findLatestModelForEachInstrument() {
+    public List<ARIMAModel> findLatestModelForEachSymbol() {
         return findAllActiveModels();
     }
-    
+
     @Override
-    public Optional<ARIMAModel> findByInstrumentAndVersion(TradingInstrument instrument, String modelVersion) {
-        ModelKey key = new ModelKey(instrument, modelVersion);
+    public Optional<ARIMAModel> findBySymbolAndVersion(String symbol, String modelVersion) {
+        ModelKey key = new ModelKey(symbol, modelVersion);
         ARIMAModel model = modelCache.get(key);
-        
+
         if (model != null) {
-            log.debug("Retrieved ARIMA model for {} with version {} from cache", instrument.getCode(), modelVersion);
+            log.debug("Retrieved ARIMA model for {} with version {} from cache", symbol, modelVersion);
             return Optional.of(model);
         } else {
-            log.warn("ARIMA model not found for instrument: {} with version: {}", instrument.getCode(), modelVersion);
-            
-            // Log available versions for this instrument for debugging
+            log.warn("ARIMA model not found for symbol: {} with version: {}", symbol, modelVersion);
+
+            // Log available versions for this symbol for debugging
             List<String> availableVersions = modelCache.keySet().stream()
-                .filter(k -> k.instrument == instrument)
+                .filter(k -> k.symbol.equals(symbol))
                 .map(k -> k.modelVersion)
                 .toList();
             if (!availableVersions.isEmpty()) {
-                log.debug("Available versions for {}: {}", instrument.getCode(), availableVersions);
+                log.debug("Available versions for {}: {}", symbol, availableVersions);
             }
         }
         return Optional.empty();
@@ -159,71 +159,55 @@ public class ARIMAMasterDataLoader implements ARIMAModelRepository {
     /**
      * Discovers and loads all available ARIMA model files from the classpath.
      * Supports both legacy format (btc_arima_model.json) and date-based format (btc_arima_model_20250904.json).
+     * Symbol names are extracted from filenames (e.g., btc_arima_model.json -> BTC symbol).
      */
     private void loadAllAvailableModels() throws IOException {
         PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
-        
-        // Pattern to match ARIMA model files: {instrument}_arima_model[_yyyyMMdd].json
+
+        // Pattern to match ARIMA model files: {symbol}_arima_model[_yyyyMMdd].json
         Resource[] resources = resolver.getResources("classpath:forecasting/*_arima_model*.json");
-        
+
         Pattern filePattern = Pattern.compile("(\\w+)_arima_model(?:_(\\d{8}))?\\.json");
-        
+
         for (Resource resource : resources) {
             String filename = resource.getFilename();
             if (filename == null) continue;
-            
+
             Matcher matcher = filePattern.matcher(filename);
             if (matcher.matches()) {
-                String instrumentCode = matcher.group(1).toUpperCase(); // btc -> BTC, eth -> ETH
+                String symbolCode = matcher.group(1).toUpperCase(); // btc -> BTC, eth -> ETH
                 String dateVersion = matcher.group(2); // 20250904 or null for legacy files
-                
-                // Convert instrument code to TradingInstrument
-                TradingInstrument instrument = parseInstrument(instrumentCode);
-                if (instrument != null) {
-                    loadModelFromResource(instrument, resource, dateVersion);
-                } else {
-                    log.warn("Unknown instrument code in filename: {}", filename);
-                }
+
+                loadModelFromResource(symbolCode, resource, dateVersion);
             } else {
                 log.debug("Skipping file that doesn't match ARIMA model pattern: {}", filename);
             }
         }
     }
-    
+
     /**
      * Loads a single ARIMA model from a resource
      */
-    private void loadModelFromResource(TradingInstrument instrument, Resource resource, String dateVersion) {
+    private void loadModelFromResource(String symbol, Resource resource, String dateVersion) {
         try {
-            log.debug("Loading ARIMA model for {} from {}", instrument.getCode(), resource.getFilename());
-            
+            log.debug("Loading ARIMA model for {} from {}", symbol, resource.getFilename());
+
             // Load JSON data from resource
             Map<String, Object> masterData = loadJsonData(resource.getInputStream());
-            
+
             // Create ARIMA model from master data
-            ARIMAModel model = createModelFromMasterData(instrument, masterData, dateVersion);
-            
-            // Cache the model with composite key (instrument + version)
-            ModelKey key = new ModelKey(instrument, model.getModelVersion());
+            ARIMAModel model = createModelFromMasterData(symbol, masterData, dateVersion);
+
+            // Cache the model with composite key (symbol + version)
+            ModelKey key = new ModelKey(symbol, model.getModelVersion());
             modelCache.put(key, model);
-            
-            log.info("Loaded ARIMA model for {}: {} coefficients, p={}, version={}", 
-                instrument.getCode(), model.getCoefficients().size(), model.getPOrder(), model.getModelVersion());
-                
+
+            log.info("Loaded ARIMA model for {}: {} coefficients, p={}, version={}",
+                symbol, model.getCoefficients().size(), model.getPOrder(), model.getModelVersion());
+
         } catch (IOException e) {
-            log.error("Failed to load ARIMA model for {} from {}: {}", instrument.getCode(), resource.getFilename(), e.getMessage());
-            throw new RuntimeException("Failed to load ARIMA model for " + instrument.getCode(), e);
-        }
-    }
-    
-    /**
-     * Parses instrument code string to TradingInstrument enum
-     */
-    private TradingInstrument parseInstrument(String instrumentCode) {
-        try {
-            return TradingInstrument.valueOf(instrumentCode);
-        } catch (IllegalArgumentException e) {
-            return null;
+            log.error("Failed to load ARIMA model for {} from {}: {}", symbol, resource.getFilename(), e.getMessage());
+            throw new RuntimeException("Failed to load ARIMA model for " + symbol, e);
         }
     }
     
@@ -235,15 +219,15 @@ public class ARIMAMasterDataLoader implements ARIMAModelRepository {
             log.warn("No ARIMA models were loaded!");
             return;
         }
-        
-        Map<TradingInstrument, List<String>> modelsByInstrument = modelCache.keySet().stream()
+
+        Map<String, List<String>> modelsBySymbol = modelCache.keySet().stream()
             .collect(Collectors.groupingBy(
-                key -> key.instrument,
+                key -> key.symbol,
                 Collectors.mapping(key -> key.modelVersion, Collectors.toList())
             ));
-            
-        modelsByInstrument.forEach((instrument, versions) -> {
-            log.info("Loaded {} version(s) for {}: {}", versions.size(), instrument.getCode(), versions);
+
+        modelsBySymbol.forEach((symbol, versions) -> {
+            log.info("Loaded {} version(s) for {}: {}", versions.size(), symbol, versions);
         });
     }
     
@@ -287,29 +271,25 @@ public class ARIMAMasterDataLoader implements ARIMAModelRepository {
         }
     }
     
-    private ARIMAModel createModelFromMasterData(TradingInstrument instrument, Map<String, Object> masterData, String dateVersion) {
+    private ARIMAModel createModelFromMasterData(String symbol, Map<String, Object> masterData, String dateVersion) {
         // Generate version string based on date or use default for legacy files
-        String version = generateVersionString(instrument, dateVersion);
-        
-        // Use appropriate factory method based on instrument with dynamic version
-        return switch (instrument) {
-            case BTC -> ARIMAModel.forBTC(masterData, version);
-            case ETH -> ARIMAModel.forETH(masterData, version);
-            default -> throw new IllegalArgumentException("Unsupported instrument for ARIMA model: " + instrument.getCode());
-        };
+        String version = generateVersionString(dateVersion);
+
+        // Use the general factory method for any symbol
+        return ARIMAModel.fromMasterData(symbol, masterData, version);
     }
-    
+
     /**
      * Generates a version string from the date version extracted from filename.
      * Uses just the date for consistency with user expectations.
      */
-    private String generateVersionString(TradingInstrument instrument, String dateVersion) {
+    private String generateVersionString(String dateVersion) {
         if (dateVersion != null) {
             // For date-based files: use just the date (20250904)
-            // This matches what users expect when calling findByInstrumentAndVersion
+            // This matches what users expect when calling findBySymbolAndVersion
             return dateVersion;
         } else {
-            // For legacy files without date: use "legacy" 
+            // For legacy files without date: use "legacy"
             return "legacy";
         }
     }
@@ -320,11 +300,11 @@ public class ARIMAMasterDataLoader implements ARIMAModelRepository {
     public Map<String, Object> getCacheStatistics() {
         Map<String, Object> stats = new HashMap<>();
         stats.put("totalModels", modelCache.size());
-        stats.put("instruments", modelCache.keySet().stream()
-            .map(key -> key.instrument.getCode())
+        stats.put("symbols", modelCache.keySet().stream()
+            .map(key -> key.symbol)
             .distinct()
             .toList());
-        
+
         // Add model details
         modelCache.forEach((key, model) -> {
             Map<String, Object> modelStats = new HashMap<>();
@@ -333,40 +313,40 @@ public class ARIMAMasterDataLoader implements ARIMAModelRepository {
             modelStats.put("version", model.getModelVersion());
             modelStats.put("createdAt", model.getCreatedAt());
             modelStats.put("lastUsed", model.getLastUsed());
-            stats.put(key.instrument.getCode().toLowerCase() + "_v" + key.modelVersion, modelStats);
+            stats.put(key.symbol.toLowerCase() + "_v" + key.modelVersion, modelStats);
         });
-        
+
         return stats;
     }
-    
+
     /**
-     * Composite key for caching models by instrument and version
+     * Composite key for caching models by symbol and version
      */
     private static final class ModelKey {
-        final TradingInstrument instrument;
+        final String symbol;
         final String modelVersion;
-        
-        ModelKey(TradingInstrument instrument, String modelVersion) {
-            this.instrument = instrument;
+
+        ModelKey(String symbol, String modelVersion) {
+            this.symbol = symbol;
             this.modelVersion = modelVersion;
         }
-        
+
         @Override
         public boolean equals(Object obj) {
             if (this == obj) return true;
             if (obj == null || getClass() != obj.getClass()) return false;
             ModelKey modelKey = (ModelKey) obj;
-            return instrument == modelKey.instrument && Objects.equals(modelVersion, modelKey.modelVersion);
+            return Objects.equals(symbol, modelKey.symbol) && Objects.equals(modelVersion, modelKey.modelVersion);
         }
-        
+
         @Override
         public int hashCode() {
-            return Objects.hash(instrument, modelVersion);
+            return Objects.hash(symbol, modelVersion);
         }
-        
+
         @Override
         public String toString() {
-            return instrument.getCode() + ":" + modelVersion;
+            return symbol + ":" + modelVersion;
         }
     }
 }

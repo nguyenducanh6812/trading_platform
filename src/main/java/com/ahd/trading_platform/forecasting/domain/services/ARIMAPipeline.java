@@ -247,12 +247,12 @@ public class ARIMAPipeline {
         // Record model usage
         context.getArimaModel().recordUsage();
         
-        log.info("ARIMA forecast completed for {} in {}ms: expected return = {}%", 
-            context.getInstrument().getCode(), executionTime.toMillis(), 
+        log.info("ARIMA forecast completed for {} in {}ms: expected return = {}%",
+            context.getInstrument().getCode(), executionTime.toMillis(),
             String.format("%.4f", expectedReturn * 100));
-        
+
         return ForecastResult.successful(
-            context.getInstrument(),
+            context.getInstrument().getCode(),
             Instant.now().plusSeconds(86400), // Next day forecast
             expectedReturn,
             confidence,
@@ -278,8 +278,6 @@ public class ARIMAPipeline {
             mse,
             standardError,
             executionTime,
-            dataStart,
-            dataEnd,
             model.getModelVersion()
         );
     }

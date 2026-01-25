@@ -1,7 +1,6 @@
 package com.ahd.trading_platform.forecasting.domain.entities;
 
 import com.ahd.trading_platform.forecasting.domain.valueobjects.ARIMACoefficient;
-import com.ahd.trading_platform.shared.valueobjects.TradingInstrument;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -10,11 +9,12 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * ARIMA Model aggregate root representing the complete ARIMA model for a trading instrument.
+ * ARIMA Model aggregate root representing the complete ARIMA model for a trading symbol.
  * Contains AR coefficients, model parameters, and provides domain operations for forecasting.
+ * Supports any trading symbol across all markets (SPOT, LINEAR, INVERSE, OPTION).
  */
 public class ARIMAModel {
-    private final TradingInstrument instrument;
+    private final String symbol;
     private final List<ARIMACoefficient> coefficients;
     private final BigDecimal meanDiffOC;
     private final BigDecimal sigma2;
@@ -22,10 +22,13 @@ public class ARIMAModel {
     private final String modelVersion;
     private final Instant createdAt;
     private Instant lastUsed;
-    
-    public ARIMAModel(TradingInstrument instrument, List<ARIMACoefficient> coefficients, 
+
+    public ARIMAModel(String symbol, List<ARIMACoefficient> coefficients,
                      BigDecimal meanDiffOC, BigDecimal sigma2, int pOrder, String modelVersion) {
-        this.instrument = Objects.requireNonNull(instrument, "Trading instrument cannot be null");
+        this.symbol = Objects.requireNonNull(symbol, "Trading symbol cannot be null");
+        if (symbol.isBlank()) {
+            throw new IllegalArgumentException("Trading symbol cannot be blank");
+        }
         this.coefficients = Objects.requireNonNull(coefficients, "Coefficients cannot be null");
         this.meanDiffOC = Objects.requireNonNull(meanDiffOC, "Mean Diff OC cannot be null");
         this.sigma2 = Objects.requireNonNull(sigma2, "Sigma2 cannot be null");
@@ -33,7 +36,7 @@ public class ARIMAModel {
         this.modelVersion = Objects.requireNonNull(modelVersion, "Model version cannot be null");
         this.createdAt = Instant.now();
         this.lastUsed = createdAt;
-        
+
         validateModel();
     }
     
@@ -70,39 +73,14 @@ public class ARIMAModel {
     }
     
     /**
-     * Factory method for creating BTC ARIMA model from master data
+     * Factory method for creating ARIMA model from master data for any symbol
      */
-    public static ARIMAModel forBTC(Map<String, Object> masterData) {
-        return createFromMasterData(TradingInstrument.BTC, masterData, "BTC_ARIMA_v1.0");
-    }
-    
-    /**
-     * Factory method for creating ETH ARIMA model from master data
-     */
-    public static ARIMAModel forETH(Map<String, Object> masterData) {
-        return createFromMasterData(TradingInstrument.ETH, masterData, "ETH_ARIMA_v1.0");
-    }
-    
-    /**
-     * Factory method for creating BTC ARIMA model with custom version
-     */
-    public static ARIMAModel forBTC(Map<String, Object> masterData, String version) {
-        return createFromMasterData(TradingInstrument.BTC, masterData, version);
-    }
-    
-    /**
-     * Factory method for creating ETH ARIMA model with custom version
-     */
-    public static ARIMAModel forETH(Map<String, Object> masterData, String version) {
-        return createFromMasterData(TradingInstrument.ETH, masterData, version);
-    }
-    
-    private static ARIMAModel createFromMasterData(TradingInstrument instrument, Map<String, Object> masterData, String version) {
+    public static ARIMAModel fromMasterData(String symbol, Map<String, Object> masterData, String version) {
         // Extract model parameters
         BigDecimal meanDiffOC = new BigDecimal(masterData.get("mean_diff_oc").toString());
         BigDecimal sigma2 = new BigDecimal(masterData.get("sigma2").toString());
         int pOrder = ((Number) masterData.get("p")).intValue();
-        
+
         // Extract AR coefficients
         List<ARIMACoefficient> coefficients = masterData.entrySet().stream()
             .filter(entry -> entry.getKey().startsWith("ar.L"))
@@ -113,8 +91,8 @@ public class ARIMAModel {
             })
             .map(entry -> ARIMACoefficient.of(entry.getKey(), ((Number) entry.getValue()).doubleValue()))
             .toList();
-        
-        return new ARIMAModel(instrument, coefficients, meanDiffOC, sigma2, pOrder, version);
+
+        return new ARIMAModel(symbol, coefficients, meanDiffOC, sigma2, pOrder, version);
     }
     
     /**
@@ -182,39 +160,39 @@ public class ARIMAModel {
     }
     
     // Getters
-    public TradingInstrument getInstrument() {
-        return instrument;
+    public String getSymbol() {
+        return symbol;
     }
-    
+
     public String getModelVersion() {
         return modelVersion;
     }
-    
+
     public Instant getCreatedAt() {
         return createdAt;
     }
-    
+
     public Instant getLastUsed() {
         return lastUsed;
     }
-    
+
     @Override
     public boolean equals(Object obj) {
         if (this == obj) return true;
         if (obj == null || getClass() != obj.getClass()) return false;
         ARIMAModel that = (ARIMAModel) obj;
-        return Objects.equals(instrument, that.instrument) && 
+        return Objects.equals(symbol, that.symbol) &&
                Objects.equals(modelVersion, that.modelVersion);
     }
-    
+
     @Override
     public int hashCode() {
-        return Objects.hash(instrument, modelVersion);
+        return Objects.hash(symbol, modelVersion);
     }
-    
+
     @Override
     public String toString() {
-        return String.format("ARIMAModel[instrument=%s, pOrder=%d, version=%s, coefficients=%d]",
-            instrument.getCode(), pOrder, modelVersion, coefficients.size());
+        return String.format("ARIMAModel[symbol=%s, pOrder=%d, version=%s, coefficients=%d]",
+            symbol, pOrder, modelVersion, coefficients.size());
     }
 }

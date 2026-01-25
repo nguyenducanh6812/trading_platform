@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="004-add-first-trading-date-column" author="trading-platform-team">
+        <comment>Add first_trading_date column to track when each instrument first started trading</comment>
+
+        <addColumn schemaName="trading_platform" tableName="market_instruments">
+            <column name="first_trading_date" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+
+        <!-- Add index for efficient queries on first trading date -->
+        <createIndex schemaName="trading_platform" tableName="market_instruments" indexName="idx_market_instruments_first_trading_date">
+            <column name="first_trading_date"/>
+        </createIndex>
+
+        <rollback>
+            <dropIndex schemaName="trading_platform" tableName="market_instruments" indexName="idx_market_instruments_first_trading_date"/>
+            <dropColumn schemaName="trading_platform" tableName="market_instruments" columnName="first_trading_date"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="006-reset-first-trading-date-to-null" author="trading-platform-team">
+        <comment>Reset first_trading_date to null - should only be set when data fetching discovers actual first trading dates</comment>
+
+        <!-- Reset first_trading_date to null for existing instruments -->
+        <!-- This field should only be populated when API calls discover actual first trading dates through 404 errors -->
+        <update schemaName="trading_platform" tableName="market_instruments">
+            <column name="first_trading_date" value="null"/>
+            <where>symbol IN ('BTC', 'ETH')</where>
+        </update>
+
+        <rollback>
+            <!-- No rollback needed - null is the correct initial state -->
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

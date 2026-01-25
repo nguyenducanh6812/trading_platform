@@ -1,0 +1,311 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- ========================================= -->
+    <!-- Portfolio Module Tables                   -->
+    <!-- ========================================= -->
+
+    <changeSet id="004a-create-portfolios-table" author="trading-platform-team">
+        <comment>Create portfolios table for managing user trading portfolios</comment>
+
+        <createTable schemaName="trading_platform" tableName="portfolios">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" primaryKeyName="pk_portfolios"/>
+            </column>
+            <column name="name" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="VARCHAR(1000)"/>
+            <column name="user_id" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+
+            <!-- Capital fields -->
+            <column name="initial_capital" type="DECIMAL(20,8)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="current_capital" type="DECIMAL(20,8)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="available_capital" type="DECIMAL(20,8)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reserved_capital" type="DECIMAL(20,8)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="currency" type="VARCHAR(3)">
+                <constraints nullable="false"/>
+            </column>
+
+            <!-- Strategy configuration -->
+            <column name="strategy_type" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="risk_tolerance" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="rebalancing_frequency" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="auto_rebalance" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="target_risk_free_rate" type="DECIMAL(10,6)">
+                <constraints nullable="false"/>
+            </column>
+
+            <!-- Leverage configuration -->
+            <column name="leverage_enabled" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="leverage_ratio" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="max_leverage_allowed" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+
+            <!-- Status and timestamps -->
+            <column name="status" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_rebalanced_at" type="TIMESTAMP WITH TIME ZONE"/>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- Indexes for portfolio queries -->
+        <createIndex schemaName="trading_platform" tableName="portfolios" indexName="idx_portfolios_user_id">
+            <column name="user_id"/>
+        </createIndex>
+        <createIndex schemaName="trading_platform" tableName="portfolios" indexName="idx_portfolios_status">
+            <column name="status"/>
+        </createIndex>
+        <createIndex schemaName="trading_platform" tableName="portfolios" indexName="idx_portfolios_user_status">
+            <column name="user_id"/>
+            <column name="status"/>
+        </createIndex>
+        <createIndex schemaName="trading_platform" tableName="portfolios" indexName="idx_portfolios_created_at">
+            <column name="created_at"/>
+        </createIndex>
+
+        <!-- Unique constraint for user_id + name -->
+        <addUniqueConstraint
+            schemaName="trading_platform"
+            tableName="portfolios"
+            columnNames="user_id, name"
+            constraintName="uk_portfolios_user_name"/>
+
+        <rollback>
+            <dropTable schemaName="trading_platform" tableName="portfolios" cascadeConstraints="true"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="004a2-create-portfolio-instruments-table" author="trading-platform-team">
+        <comment>Create portfolio_instruments junction table for many-to-many relationship with full audit support</comment>
+
+        <createTable schemaName="trading_platform" tableName="portfolio_instruments">
+            <!-- Composite primary key columns -->
+            <column name="portfolio_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="instrument_code" type="VARCHAR(30)">
+                <constraints nullable="false"/>
+            </column>
+
+            <!-- Audit columns -->
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by" type="VARCHAR(100)"/>
+            <column name="updated_by" type="VARCHAR(100)"/>
+        </createTable>
+
+        <!-- Composite primary key -->
+        <addPrimaryKey
+            schemaName="trading_platform"
+            tableName="portfolio_instruments"
+            columnNames="portfolio_id, instrument_code"
+            constraintName="pk_portfolio_instruments"/>
+
+        <!-- Foreign key to portfolios -->
+        <addForeignKeyConstraint
+            baseTableSchemaName="trading_platform"
+            baseTableName="portfolio_instruments"
+            baseColumnNames="portfolio_id"
+            constraintName="fk_portfolio_instruments_portfolio"
+            referencedTableSchemaName="trading_platform"
+            referencedTableName="portfolios"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+
+        <!-- Indexes for queries -->
+        <createIndex schemaName="trading_platform" tableName="portfolio_instruments" indexName="idx_portfolio_instruments_portfolio_id">
+            <column name="portfolio_id"/>
+        </createIndex>
+        <createIndex schemaName="trading_platform" tableName="portfolio_instruments" indexName="idx_portfolio_instruments_created_at">
+            <column name="created_at"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable schemaName="trading_platform" tableName="portfolio_instruments" cascadeConstraints="true"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="004b-create-positions-table" author="trading-platform-team">
+        <comment>Create positions table for tracking portfolio positions</comment>
+
+        <createTable schemaName="trading_platform" tableName="positions">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" primaryKeyName="pk_positions"/>
+            </column>
+            <column name="portfolio_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="instrument_code" type="VARCHAR(30)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="quantity" type="DECIMAL(20,8)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="average_entry_price" type="DECIMAL(20,8)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="current_market_price" type="DECIMAL(20,8)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_updated" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- Foreign key to portfolios -->
+        <addForeignKeyConstraint
+            baseTableSchemaName="trading_platform"
+            baseTableName="positions"
+            baseColumnNames="portfolio_id"
+            constraintName="fk_positions_portfolio"
+            referencedTableSchemaName="trading_platform"
+            referencedTableName="portfolios"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+
+        <!-- Indexes for position queries -->
+        <createIndex schemaName="trading_platform" tableName="positions" indexName="idx_positions_portfolio_id">
+            <column name="portfolio_id"/>
+        </createIndex>
+        <createIndex schemaName="trading_platform" tableName="positions" indexName="idx_positions_instrument_code">
+            <column name="instrument_code"/>
+        </createIndex>
+        <createIndex schemaName="trading_platform" tableName="positions" indexName="idx_positions_last_updated">
+            <column name="last_updated"/>
+        </createIndex>
+
+        <!-- Unique constraint for portfolio + instrument -->
+        <addUniqueConstraint
+            schemaName="trading_platform"
+            tableName="positions"
+            columnNames="portfolio_id, instrument_code"
+            constraintName="uk_positions_portfolio_instrument"/>
+
+        <rollback>
+            <dropTable schemaName="trading_platform" tableName="positions" cascadeConstraints="true"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="004c-create-trades-table" author="trading-platform-team">
+        <comment>Create trades table for tracking trade history</comment>
+
+        <createTable schemaName="trading_platform" tableName="trades">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" primaryKeyName="pk_trades"/>
+            </column>
+            <column name="portfolio_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="trade_type" type="VARCHAR(10)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="instrument_code" type="VARCHAR(30)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="quantity" type="DECIMAL(20,8)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="price" type="DECIMAL(20,8)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="fee_amount" type="DECIMAL(20,8)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="fee_currency" type="VARCHAR(10)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="execution_reference" type="VARCHAR(100)"/>
+            <column name="failure_reason" type="VARCHAR(500)"/>
+            <column name="executed_at" type="TIMESTAMP WITH TIME ZONE"/>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- Foreign key to portfolios -->
+        <addForeignKeyConstraint
+            baseTableSchemaName="trading_platform"
+            baseTableName="trades"
+            baseColumnNames="portfolio_id"
+            constraintName="fk_trades_portfolio"
+            referencedTableSchemaName="trading_platform"
+            referencedTableName="portfolios"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+
+        <!-- Indexes for trade queries -->
+        <createIndex schemaName="trading_platform" tableName="trades" indexName="idx_trades_portfolio_id">
+            <column name="portfolio_id"/>
+        </createIndex>
+        <createIndex schemaName="trading_platform" tableName="trades" indexName="idx_trades_instrument_code">
+            <column name="instrument_code"/>
+        </createIndex>
+        <createIndex schemaName="trading_platform" tableName="trades" indexName="idx_trades_trade_type">
+            <column name="trade_type"/>
+        </createIndex>
+        <createIndex schemaName="trading_platform" tableName="trades" indexName="idx_trades_status">
+            <column name="status"/>
+        </createIndex>
+        <createIndex schemaName="trading_platform" tableName="trades" indexName="idx_trades_executed_at">
+            <column name="executed_at"/>
+        </createIndex>
+        <createIndex schemaName="trading_platform" tableName="trades" indexName="idx_trades_created_at">
+            <column name="created_at"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable schemaName="trading_platform" tableName="trades" cascadeConstraints="true"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

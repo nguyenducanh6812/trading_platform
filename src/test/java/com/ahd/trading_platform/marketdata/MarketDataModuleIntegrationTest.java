@@ -73,10 +73,10 @@ class MarketDataModuleIntegrationTest {
         
         repository.save(btc);
         repository.save(eth);
-        
+
         // When
-        List<MarketInstrument> instruments = applicationService.getAllInstruments();
-        
+        List<MarketInstrument> instruments = repository.findAll();
+
         // Then
         assertThat(instruments).hasSize(2);
         assertThat(instruments.stream().map(MarketInstrument::getSymbol))

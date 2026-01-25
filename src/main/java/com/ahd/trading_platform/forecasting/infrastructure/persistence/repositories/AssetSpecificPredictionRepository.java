@@ -68,6 +68,16 @@ public interface AssetSpecificPredictionRepository {
     long countByModelVersion(String modelVersion);
     
     /**
+     * Counts successful predictions by model version within date range
+     */
+    long countSuccessfulByModelVersionAndDateRange(String modelVersion, Instant startDate, Instant endDate);
+    
+    /**
+     * Finds successful predictions by model version within date range
+     */
+    List<ExpectedReturnPrediction> findSuccessfulByModelVersionAndDateRange(String modelVersion, Instant startDate, Instant endDate);
+    
+    /**
      * Checks if prediction exists for date and model version
      */
     boolean existsByDateAndModelVersion(Instant forecastDate, String modelVersion);

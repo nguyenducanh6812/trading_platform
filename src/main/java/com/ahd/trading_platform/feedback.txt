@@ -1,0 +1,7 @@
+1. Got error
+Module 'backtesting' depends on non-exposed type 'com.ahd.trading_platform.marketdata.domain.entities.MarketInstrument' from module 'marketdata'
+
+2. The table market_instruments empty.
+I think we should have init script for that table, so when we start application, it should check if not exist then init data.
+For now the list instrument is btc and eth.
+So the initial script should easy to maintain for future new instrument

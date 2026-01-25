@@ -9,6 +9,8 @@ services:
       - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Mount init script - automatically executed on first container startup
+      - ./deployment/database/init-database.sql:/docker-entrypoint-initdb.d/01-init-schema.sql:ro
 
 volumes:
   postgres_data:

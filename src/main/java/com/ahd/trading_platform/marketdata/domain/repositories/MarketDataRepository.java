@@ -20,7 +20,15 @@ public interface MarketDataRepository {
      * Saves or updates a market instrument with its data
      */
     void save(MarketInstrument instrument);
-    
+
+    /**
+     * Batch saves multiple market instruments (more efficient than saving one-by-one)
+     *
+     * @param instruments List of instruments to save
+     * @param marketId Market ID for the instruments (used to create lazy reference)
+     */
+    void saveAll(List<MarketInstrument> instruments, Long marketId);
+
     /**
      * Finds a market instrument by symbol (loads full data including price history)
      */
@@ -36,7 +44,17 @@ public interface MarketDataRepository {
      * Finds all market instruments
      */
     List<MarketInstrument> findAll();
-    
+
+    /**
+     * Finds market instruments by market code
+     */
+    List<MarketInstrument> findByMarketCode(String marketCode);
+
+    /**
+     * Finds market instruments by market ID (optimized query using FK index)
+     */
+    List<MarketInstrument> findByMarketId(Long marketId);
+
     /**
      * Saves historical OHLCV data for an instrument
      */

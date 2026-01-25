@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- Include schema initialization -->
+    <include file="db/changelog/01-schema-initialization.xml"/>
+
+    <!-- Include table creation -->
+    <include file="db/changelog/01a-create-tables.xml"/>
+
+    <!-- Include market-based tables (spot, linear, inverse, option) -->
+    <include file="db/changelog/01b-create-market-based-tables.xml"/>
+
+    <!-- Include Spring Modulith tables -->
+    <include file="db/changelog/01b-create-spring-modulith-tables.xml"/>
+
+    <!-- Include data initialization -->
+    <include file="db/changelog/02-market-instruments-data.xml"/>
+
+    <!-- Include portfolio tables -->
+    <include file="db/changelog/04-portfolio-tables.xml"/>
+
+    <!-- Include strategy tables -->
+    <include file="db/changelog/05-strategy-tables.xml"/>
+
+</databaseChangeLog>

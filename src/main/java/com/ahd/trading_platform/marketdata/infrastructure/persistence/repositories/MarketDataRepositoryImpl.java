@@ -1,381 +1,455 @@
 package com.ahd.trading_platform.marketdata.infrastructure.persistence.repositories;
 
+import com.ahd.trading_platform.marketdata.domain.entities.Market;
 import com.ahd.trading_platform.marketdata.domain.entities.MarketInstrument;
 import com.ahd.trading_platform.marketdata.domain.repositories.MarketDataRepository;
+import com.ahd.trading_platform.marketdata.domain.services.MarketResolver;
+import com.ahd.trading_platform.marketdata.domain.valueobjects.BybitMarketType;
+import com.ahd.trading_platform.marketdata.infrastructure.persistence.entities.*;
 import com.ahd.trading_platform.shared.valueobjects.OHLCV;
+import com.ahd.trading_platform.shared.valueobjects.Price;
 import com.ahd.trading_platform.shared.valueobjects.TimeRange;
-import com.ahd.trading_platform.marketdata.infrastructure.persistence.entities.MarketInstrumentEntity;
-import com.ahd.trading_platform.marketdata.infrastructure.persistence.mappers.MarketDataMapper;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * Main repository implementation that coordinates between instrument metadata
- * and asset-specific price data repositories using the factory pattern.
+ * Full implementation of MarketDataRepository with price data persistence.
+ * Uses PriceDataRepositoryFactory for market-based routing (SPOT, LINEAR, INVERSE, OPTION).
  */
 @Repository
+@Slf4j
+@RequiredArgsConstructor
+@Transactional
 public class MarketDataRepositoryImpl implements MarketDataRepository {
-    
-    private static final Logger logger = LoggerFactory.getLogger(MarketDataRepositoryImpl.class);
-    
+
     private final MarketInstrumentJpaRepository instrumentRepository;
-    private final AssetSpecificRepositoryFactory repositoryFactory;
-    private final MarketDataMapper mapper;
-    
-    public MarketDataRepositoryImpl(
-        MarketInstrumentJpaRepository instrumentRepository,
-        AssetSpecificRepositoryFactory repositoryFactory,
-        MarketDataMapper mapper) {
-        
-        this.instrumentRepository = instrumentRepository;
-        this.repositoryFactory = repositoryFactory;
-        this.mapper = mapper;
-    }
-    
+    private final MarketJpaRepository marketJpaRepository;
+    private final PriceDataRepositoryFactory priceDataFactory;
+    private final MarketResolver marketResolver;
+
     @Override
-    @Transactional
     public void save(MarketInstrument instrument) {
-        if (instrument == null) {
-            throw new IllegalArgumentException("Instrument cannot be null");
+        log.debug("Saving market instrument: {}", instrument.getSymbol());
+
+        // Find or create instrument entity
+        MarketInstrumentEntity entity = instrumentRepository.findBySymbolIgnoreCase(instrument.getSymbol())
+                .orElseGet(() -> createNewInstrumentEntity(instrument));
+
+        // Update entity from domain
+        updateEntityFromDomain(entity, instrument);
+
+        // Save instrument metadata
+        instrumentRepository.save(entity);
+
+        // Save price history if present
+        if (!instrument.getPriceHistory().isEmpty()) {
+            saveHistoricalData(instrument.getSymbol(), instrument.getPriceHistory());
         }
-        
-        logger.debug("Saving market instrument: {}", instrument.getSymbol());
-        
-        // Save or update instrument metadata - use saveOrUpdate to avoid duplicate key errors
-        MarketInstrumentEntity entity = saveOrUpdateInstrument(instrument);
-        MarketInstrumentEntity savedEntity = entity;
-        
-        // Save price data using asset-specific repository
-        List<OHLCV> priceHistory = instrument.getPriceHistory();
-        if (!priceHistory.isEmpty()) {
-            if (repositoryFactory.supportsAsset(instrument.getSymbol())) {
-                AssetSpecificPriceRepository priceRepo = repositoryFactory.getRepository(instrument.getSymbol());
-                priceRepo.saveAll(priceHistory);
-                logger.info("Saved {} price data points for {}", priceHistory.size(), instrument.getSymbol());
-            } else {
-                logger.warn("No asset-specific repository found for {}, price data not saved", instrument.getSymbol());
-            }
-        }
-        
-        logger.info("Successfully saved market instrument: {}", instrument.getSymbol());
+
+        log.debug("Saved market instrument: {} with {} price data points",
+                instrument.getSymbol(), instrument.getDataPointCount());
     }
-    
-    /**
-     * Saves or updates instrument metadata without causing duplicate key violations
-     */
-    private MarketInstrumentEntity saveOrUpdateInstrument(MarketInstrument instrument) {
-        // Check if instrument already exists
-        Optional<MarketInstrumentEntity> existingEntityOpt = 
-            instrumentRepository.findBySymbolIgnoreCase(instrument.getSymbol());
-        
-        if (existingEntityOpt.isPresent()) {
-            // Update existing instrument
-            MarketInstrumentEntity existingEntity = existingEntityOpt.get();
-            updateInstrumentEntity(existingEntity, instrument);
-            return instrumentRepository.save(existingEntity);
-        } else {
-            // Create new instrument
-            MarketInstrumentEntity newEntity = mapper.toEntity(instrument);
-            return instrumentRepository.save(newEntity);
-        }
-    }
-    
-    /**
-     * Updates existing instrument entity with data from domain object
-     */
-    private void updateInstrumentEntity(MarketInstrumentEntity entity, MarketInstrument instrument) {
-        entity.setName(instrument.getName());
-        entity.setDataPointCount(instrument.getDataPointCount());
-        entity.setQualityScore(instrument.getQualityMetrics().getQualityScore());
-        entity.setQualityLevel(instrument.getQualityMetrics().getQualityLevel());
-        entity.setDataSource(instrument.getQualityMetrics().dataSource());
-        // Don't update symbol as it's the primary key
-        // Don't update audit fields (created_at, created_by) as they should remain unchanged
-        entity.getAuditInfo().setUpdatedAt(java.time.Instant.now());
-        entity.getAuditInfo().setUpdatedBy("SYSTEM");
-    }
-    
+
     @Override
+    public void saveAll(List<MarketInstrument> instruments, Long marketId) {
+        if (instruments == null || instruments.isEmpty()) {
+            log.debug("No instruments to save");
+            return;
+        }
+
+        log.debug("Batch saving {} market instruments for market ID: {}", instruments.size(), marketId);
+
+        // Get lazy reference to Market entity (NO database query - just a proxy!)
+        // This proxy contains only the ID and will be used for the foreign key relationship
+        MarketEntity marketReference = marketJpaRepository.getReferenceById(marketId);
+
+        // Convert all domain objects to entities
+        List<MarketInstrumentEntity> entities = instruments.stream()
+                .map(instrument -> {
+                    // Find or create entity
+                    MarketInstrumentEntity entity = instrumentRepository.findBySymbolIgnoreCase(instrument.getSymbol())
+                            .orElseGet(() -> createNewInstrumentEntity(instrument));
+
+                    // Update from domain
+                    updateEntityFromDomain(entity, instrument);
+
+                    // Set market reference using lazy proxy (no query triggered!)
+                    entity.setMarket(marketReference);
+
+                    return entity;
+                })
+                .toList();
+
+        // Batch save all entities
+        instrumentRepository.saveAll(entities);
+
+        log.debug("Batch saved {} market instruments using lazy proxy reference", entities.size());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Optional<MarketInstrument> findBySymbol(String symbol) {
-        if (symbol == null || symbol.isBlank()) {
-            return Optional.empty();
-        }
-        
-        logger.debug("Finding market instrument by symbol: {}", symbol);
-        
-        Optional<MarketInstrumentEntity> entityOpt = instrumentRepository.findBySymbolIgnoreCase(symbol);
-        if (entityOpt.isEmpty()) {
-            logger.debug("Market instrument not found: {}", symbol);
-            return Optional.empty();
-        }
-        
-        MarketInstrumentEntity entity = entityOpt.get();
-        MarketInstrument instrument = mapper.toDomain(entity);
-        
-        // Load price history if asset-specific repository exists
-        if (repositoryFactory.supportsAsset(symbol)) {
-            try {
-                AssetSpecificPriceRepository priceRepo = repositoryFactory.getRepository(symbol);
-                List<OHLCV> priceHistory = priceRepo.findAll();
-                instrument.addPriceData(priceHistory);
-                logger.debug("Loaded {} price data points for {}", priceHistory.size(), symbol);
-            } catch (Exception e) {
-                logger.warn("Failed to load price data for {}: {}", symbol, e.getMessage());
-            }
-        }
-        
-        return Optional.of(instrument);
-    }
-    
-    /**
-     * Finds instrument by symbol WITHOUT loading price data.
-     * Used for data ingestion scenarios where we only need instrument metadata.
-     */
-    public Optional<MarketInstrument> findInstrumentMetadataBySymbol(String symbol) {
-        if (symbol == null || symbol.isBlank()) {
-            return Optional.empty();
-        }
-        
-        logger.debug("Finding instrument metadata by symbol: {}", symbol);
-        
-        Optional<MarketInstrumentEntity> entityOpt = instrumentRepository.findBySymbolIgnoreCase(symbol);
-        if (entityOpt.isEmpty()) {
-            logger.debug("Instrument metadata not found: {}", symbol);
-            return Optional.empty();
-        }
-        
-        // Return instrument without loading price data - for data ingestion only
-        MarketInstrument instrument = mapper.toDomain(entityOpt.get());
-        logger.debug("Found instrument metadata for {}", symbol);
-        
-        return Optional.of(instrument);
-    }
-    
-    @Override
-    public List<MarketInstrument> findAll() {
-        logger.debug("Finding all market instruments");
-        
-        List<MarketInstrumentEntity> entities = instrumentRepository.findAll();
-        
-        return entities.stream()
-            .map(entity -> {
-                MarketInstrument instrument = mapper.toDomain(entity);
-                
-                // Load price history if available
-                if (repositoryFactory.supportsAsset(entity.getSymbol())) {
-                    try {
-                        AssetSpecificPriceRepository priceRepo = repositoryFactory.getRepository(entity.getSymbol());
-                        List<OHLCV> priceHistory = priceRepo.findAll();
-                        instrument.addPriceData(priceHistory);
-                    } catch (Exception e) {
-                        logger.warn("Failed to load price data for {}: {}", entity.getSymbol(), e.getMessage());
+        log.debug("Finding market instrument with price data for symbol: {}", symbol);
+
+        return instrumentRepository.findBySymbolIgnoreCase(symbol)
+                .map(entity -> {
+                    MarketInstrument instrument = mapEntityToDomain(entity);
+
+                    // Load all price history
+                    List<OHLCV> priceData = findAllHistoricalData(symbol);
+                    if (!priceData.isEmpty()) {
+                        instrument.addPriceData(priceData);
                     }
-                }
-                
-                return instrument;
-            })
-            .collect(Collectors.toList());
+
+                    return instrument;
+                });
     }
-    
+
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
+    public Optional<MarketInstrument> findInstrumentMetadataBySymbol(String symbol) {
+        log.debug("Finding instrument metadata (without price data) for symbol: {}", symbol);
+
+        return instrumentRepository.findBySymbolIgnoreCase(symbol)
+                .map(this::mapEntityToDomain);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MarketInstrument> findAll() {
+        log.debug("Finding all market instruments");
+
+        return instrumentRepository.findAll().stream()
+                .map(this::mapEntityToDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MarketInstrument> findByMarketCode(String marketCode) {
+        log.debug("Finding market instruments by market code: {}", marketCode);
+
+        return instrumentRepository.findByMarketCode(marketCode).stream()
+                .map(this::mapEntityToDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MarketInstrument> findByMarketId(Long marketId) {
+        log.debug("Finding market instruments by market ID: {}", marketId);
+
+        return instrumentRepository.findByMarket_Id(marketId).stream()
+                .map(this::mapEntityToDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public void saveHistoricalData(String symbol, List<OHLCV> ohlcvData) {
-        if (symbol == null || symbol.isBlank()) {
-            throw new IllegalArgumentException("Symbol cannot be null or blank");
+        if (ohlcvData == null || ohlcvData.isEmpty()) {
+            log.debug("No price data to save for symbol: {}", symbol);
+            return;
         }
-        if (ohlcvData == null) {
-            throw new IllegalArgumentException("OHLCV data cannot be null");
-        }
-        
-        logger.debug("Saving {} historical data points for {}", ohlcvData.size(), symbol);
-        
-        if (!repositoryFactory.supportsAsset(symbol)) {
-            throw new UnsupportedOperationException("No repository configured for asset: " + symbol);
-        }
-        
-        AssetSpecificPriceRepository priceRepo = repositoryFactory.getRepository(symbol);
-        priceRepo.saveAll(ohlcvData);
-        
-        logger.info("Successfully saved {} historical data points for {}", ohlcvData.size(), symbol);
+
+        log.debug("Saving {} price data points for symbol: {}", ohlcvData.size(), symbol);
+
+        // Convert OHLCV to price entities based on market type
+        List<?> entities = ohlcvData.stream()
+                .map(ohlcv -> convertToPriceEntity(symbol, ohlcv))
+                .collect(Collectors.toList());
+
+        // Save using factory (routes to correct repository based on market)
+        priceDataFactory.saveAll(symbol, entities);
+
+        log.debug("Successfully saved {} price data points for {}", entities.size(), symbol);
     }
-    
+
     @Override
+    @Transactional(readOnly = true)
     public List<OHLCV> findHistoricalData(String symbol, TimeRange timeRange) {
-        if (symbol == null || symbol.isBlank()) {
-            return List.of();
-        }
-        if (timeRange == null) {
-            return List.of();
-        }
-        
-        logger.debug("Finding historical data for {} in time range: {}", symbol, timeRange);
-        
-        if (!repositoryFactory.supportsAsset(symbol)) {
-            logger.warn("No repository configured for asset: {}", symbol);
-            return List.of();
-        }
-        
-        AssetSpecificPriceRepository priceRepo = repositoryFactory.getRepository(symbol);
-        List<OHLCV> result = priceRepo.findByTimeRange(timeRange);
-        
-        logger.debug("Found {} historical data points for {} in time range", result.size(), symbol);
-        return result;
+        log.debug("Finding historical data for {} in time range: {} to {}",
+                symbol, timeRange.from(), timeRange.to());
+
+        List<?> entities = priceDataFactory.findBySymbolAndTimestampBetweenOrderByTimestampAsc(
+                symbol, timeRange.from(), timeRange.to());
+
+        return entities.stream()
+                .map(this::convertToOHLCV)
+                .collect(Collectors.toList());
     }
-    
+
     @Override
+    @Transactional(readOnly = true)
     public List<OHLCV> findAllHistoricalData(String symbol) {
-        if (symbol == null || symbol.isBlank()) {
-            return List.of();
-        }
-        
-        logger.debug("Finding all historical data for {}", symbol);
-        
-        if (!repositoryFactory.supportsAsset(symbol)) {
-            logger.warn("No repository configured for asset: {}", symbol);
-            return List.of();
-        }
-        
-        AssetSpecificPriceRepository priceRepo = repositoryFactory.getRepository(symbol);
-        List<OHLCV> result = priceRepo.findAll();
-        
-        logger.debug("Found {} total historical data points for {}", result.size(), symbol);
-        return result;
+        log.debug("Finding all historical data for {}", symbol);
+
+        // Query from earliest to latest possible time
+        Instant earliest = Instant.ofEpochMilli(0);
+        Instant latest = Instant.now().plus(Duration.ofDays(1));
+
+        List<?> entities = priceDataFactory.findBySymbolAndTimestampBetweenOrderByTimestampAsc(
+                symbol, earliest, latest);
+
+        return entities.stream()
+                .map(this::convertToOHLCV)
+                .collect(Collectors.toList());
     }
-    
+
     @Override
+    @Transactional(readOnly = true)
     public boolean hasHistoricalData(String symbol, TimeRange timeRange) {
-        if (symbol == null || symbol.isBlank() || timeRange == null) {
-            return false;
-        }
-        
-        if (!repositoryFactory.supportsAsset(symbol)) {
-            return false;
-        }
-        
-        AssetSpecificPriceRepository priceRepo = repositoryFactory.getRepository(symbol);
-        return priceRepo.hasDataInTimeRange(timeRange);
+        log.debug("Checking if historical data exists for {} in range", symbol);
+
+        long count = priceDataFactory.countBySymbolAndTimestampBetween(
+                symbol, timeRange.from(), timeRange.to());
+
+        return count > 0;
     }
-    
+
     @Override
-    @Transactional
     public void deleteBySymbol(String symbol) {
-        if (symbol == null || symbol.isBlank()) {
-            throw new IllegalArgumentException("Symbol cannot be null or blank");
-        }
-        
-        logger.warn("Deleting all data for symbol: {}", symbol);
-        
-        // Delete price data if repository exists
-        if (repositoryFactory.supportsAsset(symbol)) {
-            AssetSpecificPriceRepository priceRepo = repositoryFactory.getRepository(symbol);
-            priceRepo.deleteAll();
-        }
-        
-        // Delete instrument metadata
-        Optional<MarketInstrumentEntity> entityOpt = instrumentRepository.findBySymbolIgnoreCase(symbol);
-        entityOpt.ifPresent(instrumentRepository::delete);
-        
-        logger.info("Deleted all data for symbol: {}", symbol);
+        log.warn("Deleting all data for symbol: {}", symbol);
+
+        // Note: This is a destructive operation
+        // Find the instrument first, then delete
+        instrumentRepository.findBySymbolIgnoreCase(symbol).ifPresent(entity -> {
+            instrumentRepository.delete(entity);
+            log.info("Deleted all data for symbol: {}", symbol);
+        });
     }
-    
+
     @Override
+    @Transactional(readOnly = true)
     public long getDataPointCount(String symbol) {
-        if (symbol == null || symbol.isBlank()) {
-            return 0L;
-        }
-        
-        if (!repositoryFactory.supportsAsset(symbol)) {
-            return 0L;
-        }
-        
-        AssetSpecificPriceRepository priceRepo = repositoryFactory.getRepository(symbol);
-        return priceRepo.count();
+        log.debug("Getting data point count for {}", symbol);
+
+        Instant earliest = Instant.ofEpochMilli(0);
+        Instant latest = Instant.now().plus(Duration.ofDays(1));
+
+        return priceDataFactory.countBySymbolAndTimestampBetween(symbol, earliest, latest);
     }
-    
+
     @Override
+    @Transactional(readOnly = true)
     public List<TimeRange> findDataRanges(String symbol, TimeRange searchRange) {
-        if (symbol == null || symbol.isBlank() || searchRange == null) {
-            return List.of();
-        }
-        
-        logger.debug("Finding existing data ranges for {} within {}", symbol, searchRange);
-        
-        // Check if we have an asset-specific repository for this symbol
-        if (!repositoryFactory.supportsAsset(symbol)) {
-            logger.debug("No asset-specific repository found for {}", symbol);
-            return List.of();
-        }
-        
-        try {
-            AssetSpecificPriceRepository priceRepo = repositoryFactory.getRepository(symbol);
-            
-            // Get existing timestamps within the search range
-            List<java.time.Instant> existingTimestamps = priceRepo.findTimestampsInRange(
-                searchRange.from(), searchRange.to());
-            
-            if (existingTimestamps.isEmpty()) {
-                logger.debug("No existing data found for {} in range", symbol);
-                return List.of();
-            }
-            
-            // Convert timestamps to continuous ranges
-            List<TimeRange> dataRanges = convertTimestampsToRanges(existingTimestamps);
-            
-            logger.debug("Found {} existing data ranges for {}", dataRanges.size(), symbol);
-            return dataRanges;
-            
-        } catch (Exception e) {
-            logger.error("Error finding data ranges for {} in range {}: {}", 
-                symbol, searchRange, e.getMessage(), e);
-            // Return empty list if we can't determine existing data
-            return List.of();
-        }
-    }
-    
-    /**
-     * Converts a list of timestamps to continuous time ranges
-     */
-    private List<TimeRange> convertTimestampsToRanges(List<java.time.Instant> timestamps) {
+        log.debug("Finding data ranges for {} in search range", symbol);
+
+        // Get all timestamps in the range
+        List<Instant> timestamps = priceDataFactory.findTimestampsBySymbolAndDateRange(
+                symbol, searchRange.from(), searchRange.to());
+
         if (timestamps.isEmpty()) {
             return List.of();
         }
-        
-        // Sort timestamps
-        List<java.time.Instant> sorted = timestamps.stream()
-            .sorted()
-            .toList();
-        
-        List<TimeRange> ranges = new java.util.ArrayList<>();
-        java.time.Instant rangeStart = sorted.get(0);
-        java.time.Instant rangeEnd = sorted.get(0);
-        
-        // 1 day gap tolerance (data is daily)
-        java.time.Duration gapTolerance = java.time.Duration.ofDays(2);
-        
-        for (int i = 1; i < sorted.size(); i++) {
-            java.time.Instant current = sorted.get(i);
-            
-            if (java.time.Duration.between(rangeEnd, current).compareTo(gapTolerance) <= 0) {
-                // Continue current range
-                rangeEnd = current;
-            } else {
-                // Gap found - close current range and start new one
-                ranges.add(new TimeRange(rangeStart, rangeEnd.plus(java.time.Duration.ofDays(1))));
+
+        // Group consecutive timestamps into ranges
+        List<TimeRange> ranges = new ArrayList<>();
+        Instant rangeStart = timestamps.get(0);
+        Instant rangeEnd = timestamps.get(0);
+
+        for (int i = 1; i < timestamps.size(); i++) {
+            Instant current = timestamps.get(i);
+            Instant previous = timestamps.get(i - 1);
+
+            // If gap is more than 2 days, start a new range
+            Duration gap = Duration.between(previous, current);
+            if (gap.toDays() > 2) {
+                ranges.add(new TimeRange(rangeStart, rangeEnd));
                 rangeStart = current;
-                rangeEnd = current;
             }
+            rangeEnd = current;
         }
-        
-        // Add the final range
-        ranges.add(new TimeRange(rangeStart, rangeEnd.plus(java.time.Duration.ofDays(1))));
-        
+
+        // Add final range
+        ranges.add(new TimeRange(rangeStart, rangeEnd));
+
         return ranges;
+    }
+
+    /**
+     * Creates a new instrument entity from domain object
+     */
+    private MarketInstrumentEntity createNewInstrumentEntity(MarketInstrument instrument) {
+        MarketInstrumentEntity entity = new MarketInstrumentEntity();
+        entity.setSymbol(instrument.getSymbol());
+        entity.setName(instrument.getName());
+        entity.setBaseCurrency(instrument.getBaseCurrency());
+        entity.setQuoteCurrency(instrument.getQuoteCurrency());
+
+        // Set market if present
+        if (instrument.getMarket() != null) {
+            MarketEntity marketEntity = new MarketEntity();
+            marketEntity.setCode(instrument.getMarket().getCode());
+            marketEntity.setName(instrument.getMarket().getName());
+            marketEntity.setDescription(instrument.getMarket().getDescription());
+            entity.setMarket(marketEntity);
+        }
+
+        return entity;
+    }
+
+    /**
+     * Updates entity fields from domain object
+     */
+    private void updateEntityFromDomain(MarketInstrumentEntity entity, MarketInstrument instrument) {
+        entity.setName(instrument.getName());
+        entity.setBaseCurrency(instrument.getBaseCurrency());
+        entity.setQuoteCurrency(instrument.getQuoteCurrency());
+        entity.setContractType(instrument.getContractType());
+        entity.setSettleCoin(instrument.getSettleCoin());
+        entity.setLaunchTime(instrument.getLaunchTime());
+        entity.setDeliveryTime(instrument.getDeliveryTime());
+        entity.setMinLeverage(instrument.getMinLeverage());
+        entity.setMaxLeverage(instrument.getMaxLeverage());
+        entity.setMinOrderQty(instrument.getMinOrderQty());
+        entity.setMaxOrderQty(instrument.getMaxOrderQty());
+        entity.setQtyStep(instrument.getQtyStep());
+        entity.setTickSize(instrument.getTickSize());
+
+        // Set first trading date if present
+        instrument.getFirstTradingDate().ifPresent(entity::setFirstTradingDate);
+
+        // Update market if present
+        if (instrument.getMarket() != null) {
+            if (entity.getMarket() == null) {
+                entity.setMarket(new MarketEntity());
+            }
+            entity.getMarket().setCode(instrument.getMarket().getCode());
+            entity.getMarket().setName(instrument.getMarket().getName());
+            entity.getMarket().setDescription(instrument.getMarket().getDescription());
+        }
+    }
+
+    /**
+     * Maps entity to domain object (without price data)
+     */
+    private MarketInstrument mapEntityToDomain(MarketInstrumentEntity entity) {
+        Market market = entity.getMarket() != null
+                ? new Market(
+                    entity.getMarket().getId(),
+                    entity.getMarket().getCode(),
+                    entity.getMarket().getName(),
+                    entity.getMarket().getDescription())
+                : null;
+
+        MarketInstrument instrument = new MarketInstrument(
+                entity.getSymbol(),
+                entity.getName(),
+                entity.getBaseCurrency(),
+                entity.getQuoteCurrency(),
+                market,
+                entity.getFirstTradingDate()
+        );
+
+        // Set additional fields
+        instrument.setContractType(entity.getContractType());
+        instrument.setSettleCoin(entity.getSettleCoin());
+        instrument.setLaunchTime(entity.getLaunchTime());
+        instrument.setDeliveryTime(entity.getDeliveryTime());
+        instrument.setMinLeverage(entity.getMinLeverage());
+        instrument.setMaxLeverage(entity.getMaxLeverage());
+        instrument.setMinOrderQty(entity.getMinOrderQty());
+        instrument.setMaxOrderQty(entity.getMaxOrderQty());
+        instrument.setQtyStep(entity.getQtyStep());
+        instrument.setTickSize(entity.getTickSize());
+
+        return instrument;
+    }
+
+    /**
+     * Converts OHLCV value object to appropriate price entity based on market type
+     */
+    private Object convertToPriceEntity(String symbol, OHLCV ohlcv) {
+        BybitMarketType marketType = marketResolver.resolveMarket(symbol);
+
+        return switch (marketType) {
+            case SPOT -> SpotPriceDataEntity.builder()
+                    .symbol(symbol)
+                    .timestamp(ohlcv.timestamp())
+                    .openPrice(ohlcv.open().amount())
+                    .highPrice(ohlcv.high().amount())
+                    .lowPrice(ohlcv.low().amount())
+                    .closePrice(ohlcv.close().amount())
+                    .volume(ohlcv.volume())
+                    .currency(ohlcv.close().currency())
+                    .build();
+            case LINEAR -> LinearPriceDataEntity.builder()
+                    .symbol(symbol)
+                    .timestamp(ohlcv.timestamp())
+                    .openPrice(ohlcv.open().amount())
+                    .highPrice(ohlcv.high().amount())
+                    .lowPrice(ohlcv.low().amount())
+                    .closePrice(ohlcv.close().amount())
+                    .volume(ohlcv.volume())
+                    .currency(ohlcv.close().currency())
+                    .build();
+            case INVERSE -> InversePriceDataEntity.builder()
+                    .symbol(symbol)
+                    .timestamp(ohlcv.timestamp())
+                    .openPrice(ohlcv.open().amount())
+                    .highPrice(ohlcv.high().amount())
+                    .lowPrice(ohlcv.low().amount())
+                    .closePrice(ohlcv.close().amount())
+                    .volume(ohlcv.volume())
+                    .currency(ohlcv.close().currency())
+                    .build();
+            case OPTION -> OptionPriceDataEntity.builder()
+                    .symbol(symbol)
+                    .timestamp(ohlcv.timestamp())
+                    .openPrice(ohlcv.open().amount())
+                    .highPrice(ohlcv.high().amount())
+                    .lowPrice(ohlcv.low().amount())
+                    .closePrice(ohlcv.close().amount())
+                    .volume(ohlcv.volume())
+                    .currency(ohlcv.close().currency())
+                    .build();
+        };
+    }
+
+    /**
+     * Converts price entity to OHLCV value object
+     */
+    private OHLCV convertToOHLCV(Object entity) {
+        return switch (entity) {
+            case SpotPriceDataEntity e -> createOHLCV(
+                    e.getOpenPrice(), e.getHighPrice(), e.getLowPrice(),
+                    e.getClosePrice(), e.getVolume(), e.getTimestamp(), e.getCurrency());
+            case LinearPriceDataEntity e -> createOHLCV(
+                    e.getOpenPrice(), e.getHighPrice(), e.getLowPrice(),
+                    e.getClosePrice(), e.getVolume(), e.getTimestamp(), e.getCurrency());
+            case InversePriceDataEntity e -> createOHLCV(
+                    e.getOpenPrice(), e.getHighPrice(), e.getLowPrice(),
+                    e.getClosePrice(), e.getVolume(), e.getTimestamp(), e.getCurrency());
+            case OptionPriceDataEntity e -> createOHLCV(
+                    e.getOpenPrice(), e.getHighPrice(), e.getLowPrice(),
+                    e.getClosePrice(), e.getVolume(), e.getTimestamp(), e.getCurrency());
+            default -> throw new IllegalArgumentException(
+                    "Unsupported price entity type: " + entity.getClass().getName());
+        };
+    }
+
+    /**
+     * Helper to create OHLCV from BigDecimal values
+     */
+    private OHLCV createOHLCV(BigDecimal open, BigDecimal high, BigDecimal low,
+                               BigDecimal close, BigDecimal volume, Instant timestamp, String currency) {
+        return new OHLCV(
+                new Price(open, currency),
+                new Price(high, currency),
+                new Price(low, currency),
+                new Price(close, currency),
+                volume,
+                timestamp
+        );
     }
 }

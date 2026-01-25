@@ -4,9 +4,9 @@ import com.ahd.trading_platform.marketdata.application.dto.MarketDataRequest;
 import com.ahd.trading_platform.marketdata.application.usecases.FetchHistoricalDataUseCase;
 import com.ahd.trading_platform.shared.valueobjects.TimeRange;
 import com.ahd.trading_platform.shared.valueobjects.TradingInstrument;
-import com.ahd.trading_platform.shared.valueobjects.*;
 import com.ahd.trading_platform.marketdata.domain.valueobjects.*;
 import com.ahd.trading_platform.marketdata.domain.constants.TradingConstants;
+import com.ahd.trading_platform.forecasting.domain.constants.ForecastingConstants;
 import static com.ahd.trading_platform.marketdata.interfaces.camunda.ProcessVariables.*;
 
 import org.camunda.bpm.client.spring.annotation.ExternalTaskSubscription;
@@ -40,10 +40,10 @@ import java.util.Arrays;
 @Component
 @ExternalTaskSubscription(
     topicName = "fetch-instruments-data",
-    processDefinitionKey = "Process_Fetch_Instrument_Data",
-    lockDuration = 300000, // 5 minutes
+    processDefinitionKeyIn = {"Process_Fetch_Instrument_Data", "Process_Back_Test_MPT"}, // Configured in application.yaml
+    lockDuration = 300000, // 5 minutes - configurable via application.yaml camunda.bpm.client.subscriptions.fetch-instruments-data.lock-duration
     includeExtensionProperties = true,
-    variableNames = {INSTRUMENT_CODES, START_DATE, END_DATE, LAUNCH_NEW_INSTRUMENTS, RESOURCE}
+    variableNames = {INSTRUMENT_CODES, START_DATE, END_DATE, LAUNCH_NEW_INSTRUMENTS, RESOURCE, AR_ORDER}
 )
 public class FetchInstrumentDataTaskWorker implements ExternalTaskHandler {
     
@@ -176,51 +176,58 @@ public class FetchInstrumentDataTaskWorker implements ExternalTaskHandler {
                 DataSourceType.fromCode(resource) : DataSourceType.getDefault();
 
             // Handle date range logic based on launchNewInstruments flag
-            LocalDate startDate;
+            LocalDate originalStartDate;
             LocalDate endDate;
-            
+
             if (isLaunchNew) {
                 // For new instruments, always use default historical range
-                startDate = TradingConstants.HISTORICAL_START_DATE;
+                originalStartDate = TradingConstants.HISTORICAL_START_DATE;
                 endDate = LocalDate.now();
-                logger.info("LaunchNewInstruments=true, using default date range: {} to {}", startDate, endDate);
+                logger.info("LaunchNewInstruments=true, using default date range: {} to {}", originalStartDate, endDate);
             } else {
                 // For regular fetch, startDate and endDate are required
                 String startDateStr = externalTask.getVariable(START_DATE);
                 String endDateStr = externalTask.getVariable(END_DATE);
-                
+
                 if (startDateStr == null || startDateStr.trim().isEmpty()) {
                     throw new InvalidProcessVariablesException(
                         "When launchNewInstruments=false, startDate is required and cannot be null or empty");
                 }
-                
+
                 if (endDateStr == null || endDateStr.trim().isEmpty()) {
                     throw new InvalidProcessVariablesException(
                         "When launchNewInstruments=false, endDate is required and cannot be null or empty");
                 }
-                
+
                 try {
-                    startDate = LocalDate.parse(startDateStr);
+                    originalStartDate = LocalDate.parse(startDateStr);
                     endDate = LocalDate.parse(endDateStr);
                 } catch (Exception parseException) {
                     throw new InvalidProcessVariablesException(
-                        "Invalid date format. Expected format: YYYY-MM-DD. startDate: " + startDateStr + 
+                        "Invalid date format. Expected format: YYYY-MM-DD. startDate: " + startDateStr +
                         ", endDate: " + endDateStr, parseException);
                 }
-                
+
                 // Validate date range
-                if (startDate.isAfter(endDate)) {
+                if (originalStartDate.isAfter(endDate)) {
                     throw new InvalidProcessVariablesException(
-                        "startDate (" + startDate + ") cannot be after endDate (" + endDate + ")");
+                        "startDate (" + originalStartDate + ") cannot be after endDate (" + endDate + ")");
                 }
-                
-                logger.info("LaunchNewInstruments=false, using provided date range: {} to {}", startDate, endDate);
+
+                logger.info("LaunchNewInstruments=false, using provided date range: {} to {}", originalStartDate, endDate);
             }
+
+            // Determine the actual start date for data fetching based on process type
+            LocalDate actualStartDate = calculateActualStartDate(externalTask, originalStartDate);
+
+            logger.info("Adjusted start date for data fetch: original={}, actual={} (difference: {} days)",
+                originalStartDate, actualStartDate,
+                java.time.temporal.ChronoUnit.DAYS.between(actualStartDate, originalStartDate));
             
-            // Create TimeRange using the fromDates static method
-            TimeRange timeRange = TimeRange.fromDates(startDate, endDate);
-            
-            return new OrchestrationInput(instrumentCodes, timeRange, startDate, endDate, isLaunchNew, dataSourceType);
+            // Create TimeRange using the adjusted dates
+            TimeRange timeRange = TimeRange.fromDates(actualStartDate, endDate);
+
+            return new OrchestrationInput(instrumentCodes, timeRange, actualStartDate, endDate, isLaunchNew, dataSourceType);
             
         } catch (InvalidProcessVariablesException e) {
             // Re-throw validation errors
@@ -231,6 +238,40 @@ public class FetchInstrumentDataTaskWorker implements ExternalTaskHandler {
         }
     }
     
+    /**
+     * Calculates the actual start date for data fetching based on process type.
+     * For backtesting processes, adjusts start date to include ARIMA model preparation period.
+     *
+     * @param externalTask The external task to check for process definition and AR order
+     * @param originalStartDate The original start date from process variables
+     * @return The adjusted start date for data fetching
+     */
+    private LocalDate calculateActualStartDate(ExternalTask externalTask, LocalDate originalStartDate) {
+        String processDefinitionKey = externalTask.getProcessDefinitionKey();
+
+        logger.debug("Calculating actual start date for process: {}, original start: {}",
+            processDefinitionKey, originalStartDate);
+
+        // Check if this is a backtesting process that needs ARIMA prediction data
+        if ("Process_Back_Test_MPT".equals(processDefinitionKey)) {
+            // Get AR order from process variables, fallback to default if not provided
+            Integer arOrder = externalTask.getVariable(AR_ORDER);
+            int preparationDays = (arOrder != null) ? arOrder : ForecastingConstants.ARIMA_MODEL_PREPARATION_DAYS;
+
+            // For backtesting, we need extra historical data for ARIMA model preparation
+            LocalDate adjustedStartDate = originalStartDate.minusDays(preparationDays);
+
+            logger.info("Backtesting process detected. Adjusting start date by {} days (AR order: {}) for ARIMA preparation: {} -> {}",
+                preparationDays, arOrder != null ? arOrder : "default", originalStartDate, adjustedStartDate);
+
+            return adjustedStartDate;
+        } else {
+            // For regular data fetching (non-backtesting), use the original date
+            logger.debug("Regular data fetch process. Using original start date: {}", originalStartDate);
+            return originalStartDate;
+        }
+    }
+
     /**
      * Extracts instrument codes from process variables, handling both JSON string and List formats.
      * Camunda may send arrays as JSON strings, so we need to deserialize them properly.

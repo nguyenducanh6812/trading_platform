@@ -1,5 +1,6 @@
 package com.ahd.trading_platform.marketdata.infrastructure.external;
 
+import com.ahd.trading_platform.marketdata.application.dto.InstrumentInfo;
 import com.ahd.trading_platform.marketdata.domain.services.ExternalDataClientStrategy;
 import com.ahd.trading_platform.shared.valueobjects.OHLCV;
 import com.ahd.trading_platform.shared.valueobjects.Price;
@@ -169,13 +170,56 @@ public class BybitDataClientStrategy implements ExternalDataClientStrategy {
         try {
             BybitTickerResponse response = bybitClient.getTickerInfo(marketType.getCategory(), "BTCUSDT");
             boolean isHealthy = response.isSuccess();
-            
+
             log.debug("Bybit API health check: {}", isHealthy ? "HEALTHY" : "UNHEALTHY");
             return isHealthy;
-            
+
         } catch (Exception e) {
             log.warn("Bybit API health check failed: {}", e.getMessage());
             return false;
+        }
+    }
+
+    @Override
+    public List<InstrumentInfo> fetchAvailableInstruments() {
+        try {
+            log.info("Fetching available instruments from Bybit (category: {})", marketType.getCategory());
+
+            // Fetch all actively trading instruments from Bybit
+            BybitInstrumentsResponse response = bybitClient.getInstrumentsInfo(
+                marketType.getCategory(),  // "linear" for futures
+                null,                       // All symbols
+                "Trading",                  // Only actively trading
+                null,                       // All base coins
+                1000,                       // Max limit
+                null                        // No pagination
+            );
+
+            if (!response.hasValidData()) {
+                log.warn("No valid instruments data from Bybit");
+                return List.of();
+            }
+
+            // Filter and map to InstrumentInfo
+            List<InstrumentInfo> instruments = response.getResult().getInstrumentList().stream()
+                .filter(BybitInstrumentsResponse.InstrumentInfo::isTradable)
+                .filter(BybitInstrumentsResponse.InstrumentInfo::isUSDTQuoted)
+                .map(instrument -> {
+                    String code = instrument.getBaseCoin();
+                    String name = mapCodeToName(code);
+                    return InstrumentInfo.of(code, name);
+                })
+                .distinct()
+                .toList();
+
+            log.info("Successfully fetched {} available instruments from Bybit", instruments.size());
+            return instruments;
+
+        } catch (Exception e) {
+            log.error("Error fetching available instruments from Bybit: {}", e.getMessage(), e);
+            throw new ExternalDataClientException(
+                "Failed to fetch available instruments from Bybit: " + e.getMessage(), e
+            );
         }
     }
     
@@ -253,5 +297,36 @@ public class BybitDataClientStrategy implements ExternalDataClientStrategy {
             return bybitSymbol.substring(0, bybitSymbol.length() - 4);
         }
         return bybitSymbol;
+    }
+
+    /**
+     * Maps instrument code to its full name.
+     * For common cryptocurrencies, returns well-known names.
+     * For others, returns a formatted version of the code.
+     */
+    private String mapCodeToName(String code) {
+        return switch (code.toUpperCase()) {
+            case "BTC" -> "Bitcoin";
+            case "ETH" -> "Ethereum";
+            case "SOL" -> "Solana";
+            case "BNB" -> "Binance Coin";
+            case "XRP" -> "Ripple";
+            case "ADA" -> "Cardano";
+            case "DOGE" -> "Dogecoin";
+            case "DOT" -> "Polkadot";
+            case "MATIC" -> "Polygon";
+            case "AVAX" -> "Avalanche";
+            case "LINK" -> "Chainlink";
+            case "UNI" -> "Uniswap";
+            case "ATOM" -> "Cosmos";
+            case "LTC" -> "Litecoin";
+            case "BCH" -> "Bitcoin Cash";
+            case "FIL" -> "Filecoin";
+            case "APT" -> "Aptos";
+            case "ARB" -> "Arbitrum";
+            case "OP" -> "Optimism";
+            case "SUI" -> "Sui";
+            default -> code; // Fallback to code itself
+        };
     }
 }

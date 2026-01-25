@@ -3,7 +3,6 @@ package com.ahd.trading_platform.forecasting.domain.services;
 import com.ahd.trading_platform.forecasting.domain.entities.ARIMAModel;
 import com.ahd.trading_platform.forecasting.domain.valueobjects.*;
 import com.ahd.trading_platform.shared.valueobjects.OHLCV;
-import com.ahd.trading_platform.shared.valueobjects.Price;
 import com.ahd.trading_platform.shared.valueobjects.TradingInstrument;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -11,7 +10,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -20,7 +18,6 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Comprehensive unit tests for ARIMACalculationService.
@@ -53,14 +50,14 @@ class ARIMACalculationServiceTest {
         
         // Then
         assertThat(result).isNotNull();
-        assertThat(result.instrument()).isEqualTo(TradingInstrument.BTC);
+        assertThat(result.symbol()).isEqualTo(TradingInstrument.BTC.getCode());
         assertThat(result.expectedReturn()).isNotNaN().isFinite();
         assertThat(result.confidenceLevel()).isBetween(0.0, 1.0);
         assertThat(result.calculations()).isNotEmpty();
         assertThat(result.metrics()).isNotNull();
         assertThat(result.metrics().dataPointsUsed()).isEqualTo(testPriceData.size());
         assertThat(result.metrics().arOrder()).isEqualTo(btcModel.getPOrder());
-        
+
         // Verify forecast summary
         assertThat(result.getSummary()).contains("BTC", "expected return", "confidence");
     }
@@ -82,7 +79,7 @@ class ARIMACalculationServiceTest {
         assertThat(step0Calcs).isNotEmpty();
         
         // Verify OC calculation (Open - Close)
-        TimeSeriesCalculation firstCalc = step0Calcs.get(0);
+        TimeSeriesCalculation firstCalc = step0Calcs.getFirst();
         assertThat(firstCalc.oc()).isEqualTo(firstCalc.openPrice() - firstCalc.closePrice());
         
         // Check Step 1: AR Lag Preparation  
@@ -198,8 +195,6 @@ class ARIMACalculationServiceTest {
         assertThat(metrics.dataPointsUsed()).isEqualTo(testPriceData.size());
         assertThat(metrics.arOrder()).isEqualTo(btcModel.getPOrder());
         assertThat(metrics.executionTime()).isNotNull().isPositive();
-        assertThat(metrics.dataRangeStart()).isEqualTo(testPriceData.get(0).timestamp());
-        assertThat(metrics.dataRangeEnd()).isEqualTo(testPriceData.get(testPriceData.size() - 1).timestamp());
         assertThat(metrics.modelVersion()).isEqualTo(btcModel.getModelVersion());
         assertThat(metrics.meanSquaredError()).isNotNaN().isFinite();
         assertThat(metrics.standardError()).isNotNaN().isFinite();
@@ -272,36 +267,36 @@ class ARIMACalculationServiceTest {
     
     private ARIMAModel createTestBTCModel() {
         Map<String, Object> masterData = new HashMap<>();
-        
+
         // Add simplified AR coefficients (5 lags instead of 30 for testing)
         masterData.put("ar.L1", -0.5);
         masterData.put("ar.L2", -0.3);
         masterData.put("ar.L3", -0.2);
         masterData.put("ar.L4", -0.1);
         masterData.put("ar.L5", -0.05);
-        
+
         masterData.put("mean_diff_oc", 2.5);
         masterData.put("sigma2", 1000.0);
         masterData.put("p", 5);
-        
-        return ARIMAModel.forBTC(masterData);
+
+        return ARIMAModel.fromMasterData("BTC", masterData, "v1.0-test");
     }
     
     private ARIMAModel createTestETHModel() {
         Map<String, Object> masterData = new HashMap<>();
-        
+
         // Add simplified AR coefficients for ETH
         masterData.put("ar.L1", -0.4);
         masterData.put("ar.L2", -0.25);
         masterData.put("ar.L3", -0.15);
         masterData.put("ar.L4", -0.08);
         masterData.put("ar.L5", -0.03);
-        
+
         masterData.put("mean_diff_oc", 0.05);
         masterData.put("sigma2", 100.0);
         masterData.put("p", 5);
-        
-        return ARIMAModel.forETH(masterData);
+
+        return ARIMAModel.fromMasterData("ETH", masterData, "v1.0-test");
     }
     
     private List<OHLCV> createTestPriceData() {

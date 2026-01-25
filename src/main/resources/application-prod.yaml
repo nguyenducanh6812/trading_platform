@@ -1,0 +1,24 @@
+# Production Profile Configuration
+# Use: java -jar app.jar --spring.profiles.active=prod
+# Or set: SPRING_PROFILES_ACTIVE=prod
+
+logging:
+  level:
+    com.ahd.trading_platform: INFO
+    org.camunda.bpm.client: INFO
+    org.springframework: WARN
+    org.hibernate: WARN
+    # Reduce verbosity in production
+  pattern:
+    # JSON format for better parsing in cloud logging systems (CloudWatch, ELK, etc.)
+    console: "{\"timestamp\":\"%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ}\",\"level\":\"%level\",\"thread\":\"%thread\",\"logger\":\"%logger{36}\",\"message\":\"%msg\"}%n"
+  # NO FILE LOGGING IN PRODUCTION
+  # Cloud platforms capture stdout/stderr automatically:
+  # - Kubernetes: kubectl logs
+  # - AWS ECS/EKS: CloudWatch Logs
+  # - Azure: Azure Monitor
+  # - GCP: Cloud Logging
+  # - Docker: docker logs
+
+# Optional: Add Logback encoder for structured JSON logging
+# Add dependency: net.logstash.logback:logstash-logback-encoder

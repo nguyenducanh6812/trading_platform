@@ -47,42 +47,60 @@ public class BybitInstrumentsResponse {
     @Data
     @NoArgsConstructor
     public static class InstrumentInfo {
-        
+
         @JsonProperty("symbol")
         private String symbol;
-        
+
+        @JsonProperty("contractType")
+        private String contractType; // LinearPerpetual, LinearFutures, etc.
+
         @JsonProperty("baseCoin")
         private String baseCoin;
-        
+
         @JsonProperty("quoteCoin")
         private String quoteCoin;
-        
+
+        @JsonProperty("settleCoin")
+        private String settleCoin;
+
         @JsonProperty("status")
         private String status; // Trading, Closed, etc.
-        
+
+        @JsonProperty("launchTime")
+        private String launchTime;
+
+        @JsonProperty("deliveryTime")
+        private String deliveryTime;
+
+        @JsonProperty("deliveryFeeRate")
+        private String deliveryFeeRate;
+
         @JsonProperty("minOrderQty")
         private String minOrderQty;
-        
+
         @JsonProperty("maxOrderQty")
         private String maxOrderQty;
-        
+
         @JsonProperty("minOrderAmt")
         private String minOrderAmount;
-        
-        @JsonProperty("maxOrderAmt") 
+
+        @JsonProperty("maxOrderAmt")
         private String maxOrderAmount;
-        
+
         @JsonProperty("qtyStep")
         private String qtyStep;
-        
+
         @JsonProperty("priceScale")
         private Integer priceScale;
-        
+
         @JsonProperty("lotSizeFilter")
         private LotSizeFilter lotSizeFilter;
-        
+
         @JsonProperty("priceFilter")
         private PriceFilter priceFilter;
+
+        @JsonProperty("leverageFilter")
+        private LeverageFilter leverageFilter;
         
         /**
          * Checks if the instrument is currently tradable.
@@ -142,17 +160,31 @@ public class BybitInstrumentsResponse {
     @Data
     @NoArgsConstructor
     public static class PriceFilter {
-        
+
         @JsonProperty("minPrice")
         private String minPrice;
-        
+
         @JsonProperty("maxPrice")
         private String maxPrice;
-        
+
         @JsonProperty("tickSize")
         private String tickSize;
     }
-    
+
+    @Data
+    @NoArgsConstructor
+    public static class LeverageFilter {
+
+        @JsonProperty("minLeverage")
+        private String minLeverage;
+
+        @JsonProperty("maxLeverage")
+        private String maxLeverage;
+
+        @JsonProperty("leverageStep")
+        private String leverageStep;
+    }
+
     /**
      * Checks if the API response was successful.
      */

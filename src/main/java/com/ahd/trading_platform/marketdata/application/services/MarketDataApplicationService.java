@@ -1,8 +1,15 @@
 package com.ahd.trading_platform.marketdata.application.services;
 
+import com.ahd.trading_platform.marketdata.application.dto.AvailableInstrumentsResponse;
+import com.ahd.trading_platform.marketdata.application.dto.GetInstrumentsByMarketRequest;
+import com.ahd.trading_platform.marketdata.application.dto.InstrumentsByMarketResponse;
 import com.ahd.trading_platform.marketdata.application.dto.MarketDataRequest;
 import com.ahd.trading_platform.marketdata.application.dto.MarketDataResponse;
+import com.ahd.trading_platform.marketdata.application.dto.MarketResponse;
 import com.ahd.trading_platform.marketdata.application.usecases.FetchHistoricalDataUseCase;
+import com.ahd.trading_platform.marketdata.application.usecases.GetAllInstrumentsUseCase;
+import com.ahd.trading_platform.marketdata.application.usecases.GetAllMarketsUseCase;
+import com.ahd.trading_platform.marketdata.application.usecases.GetInstrumentsByMarketUseCase;
 import com.ahd.trading_platform.marketdata.domain.entities.MarketInstrument;
 import com.ahd.trading_platform.marketdata.domain.repositories.MarketDataRepository;
 
@@ -22,15 +29,24 @@ import java.util.concurrent.CompletableFuture;
 public class MarketDataApplicationService {
     
     private static final Logger logger = LoggerFactory.getLogger(MarketDataApplicationService.class);
-    
+
     private final FetchHistoricalDataUseCase fetchHistoricalDataUseCase;
+    private final GetAllInstrumentsUseCase getAllInstrumentsUseCase;
+    private final GetAllMarketsUseCase getAllMarketsUseCase;
+    private final GetInstrumentsByMarketUseCase getInstrumentsByMarketUseCase;
     private final MarketDataRepository repository;
-    
+
     public MarketDataApplicationService(
         FetchHistoricalDataUseCase fetchHistoricalDataUseCase,
+        GetAllInstrumentsUseCase getAllInstrumentsUseCase,
+        GetAllMarketsUseCase getAllMarketsUseCase,
+        GetInstrumentsByMarketUseCase getInstrumentsByMarketUseCase,
         MarketDataRepository repository) {
-        
+
         this.fetchHistoricalDataUseCase = fetchHistoricalDataUseCase;
+        this.getAllInstrumentsUseCase = getAllInstrumentsUseCase;
+        this.getAllMarketsUseCase = getAllMarketsUseCase;
+        this.getInstrumentsByMarketUseCase = getInstrumentsByMarketUseCase;
         this.repository = repository;
     }
     
@@ -53,11 +69,15 @@ public class MarketDataApplicationService {
     }
     
     /**
-     * Retrieves all available market instruments
+     * Retrieves all available market instruments from external API with database fallback.
+     * Returns immediately while database is updated asynchronously.
+     *
+     * @param sourceCode Data source provider code (e.g., "bybit")
+     * @return Response with instruments and metadata
      */
-    public List<MarketInstrument> getAllInstruments() {
-        logger.debug("Retrieving all market instruments");
-        return repository.findAll();
+    public AvailableInstrumentsResponse getAvailableInstruments(String sourceCode) {
+        logger.info("Fetching available instruments from source: {}", sourceCode);
+        return getAllInstrumentsUseCase.execute(sourceCode);
     }
     
     /**
@@ -84,7 +104,24 @@ public class MarketDataApplicationService {
     public long getInstrumentDataCount(String symbol) {
         return repository.getDataPointCount(symbol);
     }
-    
+
+    /**
+     * Retrieves all available markets
+     */
+    public List<MarketResponse> getAllMarkets() {
+        logger.debug("Fetching all available markets");
+        return getAllMarketsUseCase.execute();
+    }
+
+    /**
+     * Retrieves instruments for a specific market.
+     * Accepts market details from frontend to avoid database lookup.
+     */
+    public InstrumentsByMarketResponse getInstrumentsByMarket(GetInstrumentsByMarketRequest request) {
+        logger.debug("Fetching instruments for market: {} (ID: {})", request.marketCode(), request.marketId());
+        return getInstrumentsByMarketUseCase.execute(request);
+    }
+
     private String generateExecutionId() {
         return "exec-" + UUID.randomUUID().toString().substring(0, 8);
     }

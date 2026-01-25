@@ -1,6 +1,6 @@
 package com.ahd.trading_platform.forecasting.domain.valueobjects;
 
-import com.ahd.trading_platform.shared.valueobjects.TradingInstrument;
+import lombok.Builder;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -8,64 +8,61 @@ import java.time.Instant;
 /**
  * Domain value object representing pre-calculated Demean_Diff_OC master data.
  * This data is reusable across different forecasting models (ARIMA, LSTM, Prophet, etc.).
- * 
+ *
  * Contains the fundamental time series transformations:
  * - OC: Open - Close price difference
- * - Diff_OC: First difference of OC series  
+ * - Diff_OC: First difference of OC series
  * - Demean_Diff_OC: Demeaned first difference (stationary series)
+ *
+ * Refactored to use String symbol to support any trading symbol across all markets
+ * (SPOT, LINEAR, INVERSE, OPTION).
  */
+@Builder(toBuilder = true)
 public record DemeanDiffOCMasterData(
-    TradingInstrument instrument,
+    String symbol,               // Trading symbol (e.g., "BTC", "ETH", "BTCUSDT")
     Instant timestamp,
-    BigDecimal openPrice,
-    BigDecimal closePrice,
-    BigDecimal oc,
+    BigDecimal openPrice,        // Open price for this timestamp
+    BigDecimal closePrice,       // Close price for this timestamp
+    BigDecimal oc,               // Open - Close difference
     BigDecimal diffOC,           // Null for first data point
-    BigDecimal demeanDiffOC,     // Null for first data point  
-    BigDecimal meanDiffOC,       // Mean used for demeaning
-    String calculationVersion,
-    Instant calculatedAt
+    BigDecimal demeanDiffOC      // Null for first data point
 ) {
     
     /**
      * Creates initial master data point (first in series)
      */
     public static DemeanDiffOCMasterData initial(
-            TradingInstrument instrument,
-            Instant timestamp, 
+            String symbol,
+            Instant timestamp,
             BigDecimal openPrice,
-            BigDecimal closePrice,
-            BigDecimal meanDiffOC,
-            String calculationVersion) {
-        
+            BigDecimal closePrice) {
+
         BigDecimal oc = closePrice.subtract(openPrice);
-        
+
         return new DemeanDiffOCMasterData(
-            instrument, timestamp, openPrice, closePrice, oc,
-            null, null, // No diff/demean for first point
-            meanDiffOC, calculationVersion, Instant.now()
+            symbol, timestamp, openPrice, closePrice, oc,
+            null, null // No diff/demean for first point
         );
     }
-    
+
     /**
      * Creates subsequent master data point with differences calculated
      */
     public static DemeanDiffOCMasterData withDifferences(
-            TradingInstrument instrument,
+            String symbol,
             Instant timestamp,
-            BigDecimal openPrice, 
+            BigDecimal openPrice,
             BigDecimal closePrice,
             BigDecimal previousOC,
-            BigDecimal meanDiffOC,
-            String calculationVersion) {
-        
+            BigDecimal meanDiffOC) {
+
         BigDecimal oc = closePrice.subtract(openPrice);
         BigDecimal diffOC = oc.subtract(previousOC);
         BigDecimal demeanDiffOC = diffOC.subtract(meanDiffOC);
-        
+
         return new DemeanDiffOCMasterData(
-            instrument, timestamp, openPrice, closePrice, oc,
-            diffOC, demeanDiffOC, meanDiffOC, calculationVersion, Instant.now()
+            symbol, timestamp, openPrice, closePrice, oc,
+            diffOC, demeanDiffOC
         );
     }
     
@@ -82,19 +79,18 @@ public record DemeanDiffOCMasterData(
     public void requireDemeanDiffOC() {
         if (demeanDiffOC == null) {
             throw new IllegalStateException(
-                String.format("DemeanDiffOC is required for model calculations but is null for %s at %s", 
-                    instrument, timestamp));
+                String.format("DemeanDiffOC is required for model calculations but is null for %s at %s",
+                    symbol, timestamp));
         }
     }
-    
+
     /**
      * Gets the unique identifier for this master data point
      */
     public String getUniqueKey() {
-        return String.format("%s_%s_%s", 
-            instrument.name(), 
-            timestamp.toEpochMilli(),
-            calculationVersion);
+        return String.format("%s_%s",
+            symbol,
+            timestamp.toEpochMilli());
     }
     
     /**
@@ -111,33 +107,32 @@ public record DemeanDiffOCMasterData(
     public double ocAsDouble() {
         return oc.doubleValue();
     }
-    
+
     /**
-     * Converts open price to double value for calculations  
+     * Converts open price to double value for calculations
      */
     public double openPriceAsDouble() {
         return openPrice.doubleValue();
     }
-    
+
     /**
      * Converts close price to double value for calculations
      */
     public double closePriceAsDouble() {
         return closePrice.doubleValue();
     }
-    
+
     /**
      * Creates a copy with recalculated differences
      * Used when updating master data with fresh calculations from price data
      */
     public DemeanDiffOCMasterData withRecalculatedDifferences(
-            BigDecimal newOC, 
-            BigDecimal newDiffOC, 
+            BigDecimal newOC,
+            BigDecimal newDiffOC,
             BigDecimal newDemeanDiffOC) {
         return new DemeanDiffOCMasterData(
-            instrument, timestamp, openPrice, closePrice, 
-            newOC, newDiffOC, newDemeanDiffOC, 
-            meanDiffOC, calculationVersion, Instant.now()
+            symbol, timestamp, openPrice, closePrice,
+            newOC, newDiffOC, newDemeanDiffOC
         );
     }
 }

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Note: Initial instruments are no longer inserted here.
+        Instruments are dynamically fetched from external API (Bybit) and synced to database automatically.
+        See GetInstrumentsByMarketUseCase for implementation.
+    -->
+
+    <changeSet id="003-add-unique-constraint-symbol" author="trading-platform-team">
+        <comment>Ensure symbol uniqueness to prevent duplicate instrument entries</comment>
+        <addUniqueConstraint
+            schemaName="trading_platform"
+            tableName="market_instruments"
+            columnNames="symbol"
+            constraintName="uk_market_instruments_symbol"/>
+
+        <rollback>
+            <dropUniqueConstraint
+                schemaName="trading_platform"
+                tableName="market_instruments"
+                constraintName="uk_market_instruments_symbol"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

@@ -56,7 +56,7 @@
         "columns": null
       },
       "id": "Field_13pldua",
-      "key": "select_expected_return_model",
+      "key": "arimaModelVersion",
       "defaultValue": "value"
     },
     {

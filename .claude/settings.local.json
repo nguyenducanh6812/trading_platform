@@ -22,7 +22,16 @@
       "Bash(docker exec:*)",
       "Bash(wmic process where processid=32908 delete:*)",
       "Bash(wmic process where processid=36256 delete:*)",
-      "Bash(wmic process where processid=4156 delete:*)"
+      "Bash(wmic process where processid=4156 delete:*)",
+      "Bash(wmic process where processid=40816 delete:*)",
+      "Bash(findstr:*)",
+      "Bash(wmic process where processid=56840 delete)",
+      "Bash(wmic process where processid=52884 delete)",
+      "Bash(wmic process where processid=38252 delete)",
+      "Bash(wmic process where processid=62972 delete)",
+      "Bash(wmic process where processid=15224 delete)",
+      "Bash(wmic process where processid=53848 delete)",
+      "Bash(wmic process where processid=44864 delete)"
     ],
     "deny": [],
     "ask": []

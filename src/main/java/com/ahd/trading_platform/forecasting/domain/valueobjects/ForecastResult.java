@@ -1,7 +1,5 @@
 package com.ahd.trading_platform.forecasting.domain.valueobjects;
 
-import com.ahd.trading_platform.shared.valueobjects.TradingInstrument;
-
 import java.time.Instant;
 import java.util.List;
 
@@ -10,7 +8,7 @@ import java.util.List;
  * Contains the predicted return and all intermediate calculations for audit and monitoring.
  */
 public record ForecastResult(
-    TradingInstrument instrument,
+    String symbol,
     Instant forecastDate,
     double expectedReturn,
     double confidenceLevel,
@@ -18,10 +16,10 @@ public record ForecastResult(
     ForecastMetrics metrics,
     Instant calculatedAt
 ) {
-    
+
     public ForecastResult {
-        if (instrument == null) {
-            throw new IllegalArgumentException("Trading instrument cannot be null");
+        if (symbol == null || symbol.isBlank()) {
+            throw new IllegalArgumentException("Trading symbol cannot be null or blank");
         }
         if (forecastDate == null) {
             throw new IllegalArgumentException("Forecast date cannot be null");
@@ -35,26 +33,26 @@ public record ForecastResult(
         if (calculatedAt == null) {
             throw new IllegalArgumentException("Calculated at timestamp cannot be null");
         }
-        
+
         // Validate confidence level
         if (confidenceLevel < 0.0 || confidenceLevel > 1.0) {
             throw new IllegalArgumentException("Confidence level must be between 0.0 and 1.0");
         }
     }
-    
+
     /**
      * Creates a successful forecast result
      */
     public static ForecastResult successful(
-            TradingInstrument instrument,
+            String symbol,
             Instant forecastDate,
             double expectedReturn,
             double confidenceLevel,
             List<TimeSeriesCalculation> calculations,
             ForecastMetrics metrics) {
-        
+
         return new ForecastResult(
-            instrument, forecastDate, expectedReturn, confidenceLevel,
+            symbol, forecastDate, expectedReturn, confidenceLevel,
             List.copyOf(calculations), metrics, Instant.now()
         );
     }
@@ -89,7 +87,7 @@ public record ForecastResult(
      */
     public String getSummary() {
         return String.format("ARIMA forecast for %s: %.4f%% expected return (%.1f%% confidence) using %d data points",
-            instrument.getCode(),
+            symbol,
             expectedReturn * 100,
             confidenceLevel * 100,
             metrics.dataPointsUsed()
