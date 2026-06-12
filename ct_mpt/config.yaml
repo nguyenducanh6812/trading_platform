@@ -1,0 +1,297 @@
+# =============================================================================
+# CRYPTO TRADING MODEL CONFIGURATION
+# =============================================================================
+# This configuration file defines all parameters for the crypto trading model.
+# Each strategy MUST have explicit bounds - no fallbacks allowed for safety.
+
+backtest:
+  initial_capital: 1.0
+  run_all_combinations: true
+
+data:
+#  file_path: src/crypto_trading_model/data/all_data.csv
+  file_path: G:\My Drive\crypto_trading_model\src\crypto_trading_model\data\smally_size.csv
+
+output:
+  excel_path: backtest_results.xlsx
+  export_excel: true
+  output_dir: backtest_results
+
+risk_free:
+  annual_rates:
+  - 0.04
+  default_rate: 0.04
+
+risk_profiles:
+  # Available risk profiles for optimization
+  available:
+  - neutral
+  default: neutral
+
+strategy:
+  lookback_period: 7
+  rebalancing_frequency: 1
+  
+  # WEIGHT PRECISION CONTROL
+  # Controls the decimal precision of portfolio weights for realistic trading
+  # - 0: Integer weights only (1, 0) - fastest, least precise
+  # - 1: One decimal (1.3, 0.7) - fast, basic precision
+  # - 2: Two decimals (1.31, 0.69) - good balance
+  # - 3: Three decimals (1.314, 0.686) - high precision, slower
+  # - 4+: Continuous optimization (no discrete constraint)
+  # - 16: Maximum precision (default) - preserves full optimizer accuracy
+  # 
+  # PERFORMANCE IMPACT:
+  # - Lower values (0-3): Uses discrete optimization (faster, more realistic)
+  # - Higher values (4+): Uses continuous optimization (slower, more precise)
+  # - Default: 16 for maximum precision, can be overridden in UI for practical trading
+  weight_precision: 16
+  
+  # ==========================================================================
+  # STRATEGY-SPECIFIC BOUNDS (REQUIRED)
+  # ==========================================================================
+  # Each strategy MUST have explicit bounds defined here.
+  # NO FALLBACKS allowed - this prevents configuration errors.
+  #
+  # Strategy Requirements:
+  # - Long: Sum of weights = 1 (buying assets, can use leverage)
+  # - Short: Sum of weights = -1 (shorting assets, negative weights required)  
+  # - Market Neutral: Sum of weights = 0 (balanced long/short positions)
+  # - GMVP: Global Minimum Variance Portfolio (typically long-only)
+  # - Max Return: Maximum return optimization (strategy-dependent)
+  # - Sharpe Max: Maximum Sharpe ratio optimization (strategy-dependent)
+  # ==========================================================================
+  
+  strategy_bounds:
+    # LONG STRATEGY: Buy and hold with possible leverage
+    # - Constraint: sum(weights) = 1
+    # - Logic: Can buy assets (positive weights), leverage allowed
+    # - Bounds: Allow positive weights up to 2x leverage, small negative for hedging
+    long:
+    - -1    # Lower bound: Allow small short positions for hedging
+    - 2     # Upper bound: Allow 2x leverage on individual assets
+    
+    # SHORT STRATEGY: Short selling strategy  
+    # - Constraint: sum(weights) = -1
+    # - Logic: Primarily short positions (negative weights required)
+    # - Bounds: Allow negative weights for shorting, small positive for covering
+    short:
+    - -2    # Lower bound: Allow 2x short leverage on individual assets
+    - 1     # Upper bound: Allow small long positions for covering/hedging
+    
+    # MARKET NEUTRAL STRATEGY: Dollar-neutral long/short
+    # - Constraint: sum(weights) = 0  
+    # - Logic: Equal long and short exposure (both positive and negative weights needed)
+    # - Bounds: Balanced bounds allowing both long and short positions
+    market_neutral:
+    - -1    # Lower bound: Allow short positions up to -100% of capital
+    - 1     # Upper bound: Allow long positions up to +100% of capital
+    
+    # GLOBAL MINIMUM VARIANCE PORTFOLIO (GMVP)
+    # - Typically long-only or long-biased strategy
+    # - Focus on minimizing portfolio variance
+    # - Bounds: Conservative bounds, primarily positive weights
+    gmvp:
+    - -0.5  # Lower bound: Minimal short positions allowed
+    - 2     # Upper bound: Allow moderate leverage for diversification
+    
+    # MAXIMUM RETURN STRATEGY
+    # - Focus on maximizing expected return
+    # - Can use aggressive positioning and leverage
+    # - Bounds: Wide bounds to allow aggressive strategies
+    max_return:
+    - -2    # Lower bound: Allow significant short positions
+    - 2     # Upper bound: Allow significant leverage
+    
+    # MAXIMUM SHARPE RATIO STRATEGY
+    # - Focus on best risk-adjusted returns
+    # - Balance between return and risk
+    # - Bounds: Moderate bounds for balanced risk/return
+    sharpe_max:
+    - -2    # Lower bound: Allow short positions for risk management
+    - 2     # Upper bound: Allow leverage when Sharpe ratio is favorable
+
+# =============================================================================
+# ARIMA CONFIGURATION (NEW SECTION)
+# =============================================================================
+# Configuration for ARIMA time series analysis and forecasting
+#
+# Parameter Ranges:
+# - Define search space for optimal ARIMA(p,d,q) model selection
+# - Larger ranges = more comprehensive search but longer computation time
+# - Smaller ranges = faster testing but may miss optimal models
+#
+# Significance Testing:
+# - Controls which coefficients are considered "significant"
+# - Lower values = stricter criteria, fewer coefficients accepted
+# - Higher values = more lenient, more coefficients accepted
+#
+# Optimization Parameters:
+# - Control the numerical optimization process for each ARIMA model
+# - Higher iterations/precision = better fit but slower computation
+# =============================================================================
+
+arima:
+  # PARAMETER SEARCH RANGES [min, max] (inclusive)
+  # These define which ARIMA(p,d,q) combinations will be tested
+  p_range: [0, 8]        # Autoregressive order: 0 to 8
+  d_range: [0, 1]        # Differencing order: 0 to 1  
+  q_range: [0, 8]        # Moving average order: 0 to 8
+  
+  # SIGNIFICANCE TESTING
+  # Coefficients must meet BOTH criteria to be considered significant:
+  # 1. p-value < significance_level 
+  # 2. Confidence interval excludes zero
+  significance_level: 0.1           # p-value threshold (0.1 = 10% significance level)
+  
+  # OPTIMIZATION PARAMETERS
+  # Control numerical optimization for each ARIMA model fit
+  max_iterations: 1000              # Maximum iterations per model fit
+  convergence_tolerance: 0.000000001  # Convergence tolerance (1e-9)
+
+# =============================================================================
+# ARIMA CONFIGURATION EXAMPLES FOR DIFFERENT USE CASES
+# =============================================================================
+#
+# FOR FASTER DEVELOPMENT/TESTING (uncomment to use):
+# arima:
+#   p_range: [0, 4]                 # Smaller search space
+#   d_range: [0, 1] 
+#   q_range: [0, 4]
+#   significance_level: 0.1
+#   max_iterations: 500             # Faster fitting
+#   convergence_tolerance: 0.00001  # Less precise but faster
+#
+# FOR COMPREHENSIVE PRODUCTION ANALYSIS (uncomment to use):
+# arima:
+#   p_range: [0, 12]                # Larger search space
+#   d_range: [0, 2]
+#   q_range: [0, 12] 
+#   significance_level: 0.05        # Stricter significance
+#   max_iterations: 2000            # More thorough fitting
+#   convergence_tolerance: 0.0000000001  # Higher precision
+#
+# FOR HIGH-FREQUENCY DATA (uncomment to use):
+# arima:
+#   p_range: [0, 15]                # Even larger search space
+#   d_range: [0, 2]
+#   q_range: [0, 15]
+#   significance_level: 0.1
+#   max_iterations: 1500
+#   convergence_tolerance: 0.000000001
+#
+# =============================================================================
+
+# =============================================================================
+# OC (OPEN-CLOSE) ANALYSIS CONFIGURATION
+# =============================================================================
+# Configuration for Open-Close price difference analysis
+#
+# Mean Diff OC Values:
+# - Pre-calculated mean values for demeaning Diff_OC time series
+# - Used to center the Diff_OC values around zero for analysis
+# - Can be asset-specific or use global defaults
+# - Values should be calculated from historical data or set to 0 for raw analysis
+#
+# Usage Modes:
+# - Use calculated values: Set specific mean_diff_oc values per asset
+# - Use raw analysis: Set all values to 0.0 to skip demeaning
+# - Mixed mode: Use calculated values for some assets, defaults for others
+# =============================================================================
+
+oc_analysis:
+  # MEAN DIFF OC VALUES
+  # Pre-calculated mean values for each asset to use in demeaning process
+  # Set to 0.0 to skip demeaning and use raw Diff_OC values
+  mean_diff_oc:
+    BTC: 2.6639083386378104        # Bitcoin mean Diff_OC value (set to 0.0 for raw analysis)
+    ETH: 0.04846594525779765        # Ethereum mean Diff_OC value (set to 0.0 for raw analysis)
+    # Add additional assets as needed:
+    # LTC: 0.0      # Litecoin example
+    # ADA: 0.0      # Cardano example
+  
+  # DEFAULT MEAN DIFF OC VALUE
+  # Used for assets not explicitly configured above
+  default_mean_diff_oc: 0.0
+  
+  # ANALYSIS OPTIONS
+  # Control various aspects of the OC analysis process
+  options:
+    # Whether to use configured mean_diff_oc values or calculate from data
+    use_configured_means: true
+    
+    # Whether to export detailed analysis results
+    export_detailed_results: true
+    
+    # Export formats: 'csv', 'excel', or 'both'
+    export_format: 'csv'
+
+# =============================================================================
+# OC ANALYSIS CONFIGURATION EXAMPLES FOR DIFFERENT USE CASES
+# =============================================================================
+#
+# FOR RAW ANALYSIS (no demeaning - uncomment to use):
+# oc_analysis:
+#   mean_diff_oc:
+#     BTC: 0.0
+#     ETH: 0.0
+#   default_mean_diff_oc: 0.0
+#   options:
+#     use_configured_means: true
+#
+# FOR HISTORICAL MEAN-BASED ANALYSIS (uncomment to use):
+# oc_analysis:
+#   mean_diff_oc:
+#     BTC: 0.001234    # Replace with actual historical mean
+#     ETH: -0.000567   # Replace with actual historical mean  
+#   default_mean_diff_oc: 0.0
+#   options:
+#     use_configured_means: true
+#
+# FOR DYNAMIC CALCULATION (calculate means from current data):
+# oc_analysis:
+#   mean_diff_oc:
+#     BTC: 0.0
+#     ETH: 0.0
+#   default_mean_diff_oc: 0.0
+#   options:
+#     use_configured_means: false   # Calculate means from data
+#
+# =============================================================================
+
+# =============================================================================
+# CONFIGURATION VALIDATION NOTES
+# =============================================================================
+#
+# CRITICAL: Each strategy in the 'strategy_bounds' section MUST be explicitly 
+# defined. The system will FAIL if any required strategy bounds are missing.
+# This is intentional to prevent silent errors from inappropriate bounds.
+#
+# Required strategies that MUST have bounds defined:
+# - long
+# - short  
+# - market_neutral
+# - gmvp
+# - max_return
+# - sharpe_max
+#
+# If you need to add new strategies, ensure you:
+# 1. Add the strategy bounds here
+# 2. Register the strategy in the StrategyFactory
+# 3. Implement the constraint strategy class
+#
+# BOUNDS LOGIC VALIDATION:
+# The system validates that bounds make logical sense:
+# - Long strategy: upper bound > 0 (can buy assets)
+# - Short strategy: lower bound < 0 (can short assets)
+# - Market neutral: lower < 0 AND upper > 0 (can long and short)
+#
+# ARIMA PARAMETER VALIDATION:
+# The system validates ARIMA parameters:
+# - All ranges must be [min, max] with min <= max
+# - All values must be non-negative integers for p, d, q ranges
+# - significance_level must be between 0 and 1
+# - max_iterations must be positive integer
+# - convergence_tolerance must be positive number
+#
+# =============================================================================

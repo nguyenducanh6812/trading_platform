@@ -1,0 +1,68 @@
+2025-08-16 16:36:02,236 - EnhancedCryptoTradingModel - INFO - ✓ Enhanced backtester created successfully
+--- Logging error ---
+Traceback (most recent call last):
+  File "D:\setup\Python313\Lib\logging\__init__.py", line 1153, in emit
+    stream.write(msg + self.terminator)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\setup\Python313\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2713' in position 62: character maps to <undefined>
+Call stack:
+  File "G:\My Drive\crypto_trading_model\main_enhanced.py", line 154, in <module>
+    main()
+  File "G:\My Drive\crypto_trading_model\main_enhanced.py", line 81, in main
+    logger.info("✓ Enhanced backtester created successfully")
+  File "G:\My Drive\crypto_trading_model\src\crypto_trading_model\custom_logging\logger.py", line 34, in info
+    self.logger.info(message)
+Message: '✓ Enhanced backtester created successfully'
+Arguments: ()
+2025-08-16 16:36:02,291 - EnhancedCryptoTradingModel - INFO - Running enhanced backtest for risk profile: neutral
+2025-08-16 16:36:02,308 - EnhancedCryptoTradingModel - INFO - Enhanced strategy factory initialized with predicted returns support
+2025-08-16 16:36:02,309 - EnhancedCryptoTradingModel - INFO - Enhanced optimizer initialized with predicted returns support - STRICT MODE (will fail if predictions missing)
+2025-08-16 16:36:02,309 - EnhancedCryptoTradingModel - INFO - Asset codes: ['BTC', 'ETH']
+2025-08-16 16:36:02,310 - EnhancedCryptoTradingModel - INFO - Predicted returns path: oc_analysis_results
+2025-08-16 16:36:07,050 - EnhancedCryptoTradingModel - INFO - Successfully loaded predicted returns: [ 0.00453661 -0.00636027]
+2025-08-16 16:36:07,051 - EnhancedCryptoTradingModel - INFO - Day 7: Using ARIMA predicted returns for optimization
+2025-08-16 16:36:07,052 - EnhancedCryptoTradingModel - INFO -   Predicted returns: [ 0.00453661 -0.00636027]
+2025-08-16 16:36:07,053 - EnhancedCryptoTradingModel - INFO -   Historical mean returns: [-0.00379104 -0.00499191]
+2025-08-16 16:36:07,055 - EnhancedCryptoTradingModel - INFO - Phase 1 Enhanced: Using ARIMA predicted returns for optimization
+2025-08-16 16:36:07,056 - EnhancedCryptoTradingModel - INFO - Using ARIMA predicted returns for long/max_sharpe optimization
+2025-08-16 16:36:07,056 - EnhancedCryptoTradingModel - INFO - Predicted returns: [ 0.00453661 -0.00636027]
+2025-08-16 16:36:07,057 - EnhancedCryptoTradingModel - INFO - Historical mean returns: [-0.00379104 -0.00499191]
+2025-08-16 16:36:07,072 - EnhancedCryptoTradingModel - INFO - Loaded strategy-specific bounds: {'long': (-1, 2), 'short': (-2, 1), 'market_neutral': (-1, 1), 'gmvp': (-0.5, 2), 'max_return': (-2, 2), 'sharpe_max': (-2, 2)}
+2025-08-16 16:36:07,075 - EnhancedCryptoTradingModel - INFO - ARIMA configuration loaded:
+2025-08-16 16:36:07,075 - EnhancedCryptoTradingModel - INFO -   p_range: (0, 8)
+2025-08-16 16:36:07,076 - EnhancedCryptoTradingModel - INFO -   d_range: (0, 1)
+2025-08-16 16:36:07,076 - EnhancedCryptoTradingModel - INFO -   q_range: (0, 8)
+2025-08-16 16:36:07,077 - EnhancedCryptoTradingModel - INFO -   Total combinations: 162
+2025-08-16 16:36:07,078 - EnhancedCryptoTradingModel - ERROR - Enhanced optimization failed for long/max_sharpe: 'LongConstraintStrategy' object has no attribute 'optimize'
+Traceback (most recent call last):
+  File "G:\My Drive\crypto_trading_model\main_enhanced.py", line 154, in <module>
+    main()
+    ~~~~^^
+  File "G:\My Drive\crypto_trading_model\main_enhanced.py", line 106, in main
+    backtest_results = enhanced_backtester.backtest_enhanced(
+        data=market_data,
+    ...<5 lines>...
+        use_predicted_returns=True  # Key parameter - use ARIMA predictions!
+    )
+  File "G:\My Drive\crypto_trading_model\src\crypto_trading_model\backtest\enhanced_backtester.py", line 218, in backtest_enhanced
+    phase1_results = temp_optimizer.optimize_phase1_enhanced(use_predicted_returns)
+  File "G:\My Drive\crypto_trading_model\src\crypto_trading_model\optimization\enhanced_optimizer.py", line 173, in optimize_phase1_enhanced
+    weights, ret, vol, sharpe = self.get_enhanced_strategy_results(
+                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        constraint_type, 'max_sharpe', use_predicted_returns
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "G:\My Drive\crypto_trading_model\src\crypto_trading_model\optimization\enhanced_optimizer.py", line 139, in get_enhanced_strategy_results
+    result = self.enhanced_factory.optimize_with_predicted_returns(
+        constraint_type, objective_type,
+        self.mean_returns, self.cov_matrix, self.rf_rate,
+        predicted_returns
+    )
+  File "G:\My Drive\crypto_trading_model\src\crypto_trading_model\optimization\enhanced_strategy_factory.py", line 98, in optimize_with_predicted_returns
+    optimal_weights = constraint_strategy.optimize(objective_function)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'LongConstraintStrategy' object has no attribute 'optimize'

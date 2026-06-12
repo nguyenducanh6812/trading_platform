@@ -1,0 +1,9 @@
+Sync data 2 module:
+1. Get new asset data. BTC, ETH...
+2. Sync daily asset data. BTC, ETH
+
+Input: Asset code, from date, to date.
+Output: CSV file include collumns, if asset code is BTC, so we have below collumn: 
+TIMESTAMP	OPEN_PRICE_BTC	CLOSE_PRICE_BTC HIGHT_BTC	LOW_BTC	VOLUMN_BTC	TURNOVER_BTC
+
+Using API: https://api.bybit.com/v5/market/kline

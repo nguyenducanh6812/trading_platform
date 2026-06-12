@@ -1,0 +1,26 @@
+# Minimal requirements for development
+# Use this if you encounter installation issues with requirements.txt
+
+# Core dependencies
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Data processing
+pandas
+numpy
+openpyxl
+
+# Validation
+pydantic
+pydantic-settings
+
+# Configuration
+python-dotenv
+
+# Build tools
+setuptools
+wheel
+
+# Basic testing
+pytest

@@ -1,0 +1,17 @@
+[project]
+name = "crypto_trading_model"
+version = "0.1.0"
+description = "A cryptocurrency trading model based on Modern Portfolio Theory"
+authors = [{ name = "Duc Anh", email = "nguyenducanh6812@gmail.com" }]
+dependencies = [
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "scipy>=1.10.0",
+    "pyyaml>=6.0.0",
+    "openpyxl>=3.1.0"
+]
+requires-python = ">=3.8"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"

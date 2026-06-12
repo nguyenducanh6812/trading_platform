@@ -1,0 +1,160 @@
+Requirement: Realistic Backtest with Fees and Rebalancing
+
+We need to implement a new module to simulate actual trading behavior in a backtest, including trading fees and account rebalancing.
+
+1. Capital Allocation
+
+Total capital is divided into two accounts:
+
+Trading Account – used for trading (open positions: Long, Short).
+
+Saving Account – used for depositing into a bank to earn interest.
+
+Example:
+
+Total capital = 1,000 USD
+
+Trading Account = 500 USD
+
+Saving Account = 500 USD
+
+2. Input Data (Backtest Results)
+
+The backtest generates results in:
+
+simple_backtest_results/simple_backtest_BTC_ETH_20250818_160543.xlsx
+
+
+Columns include:
+
+BTC_Weight
+
+ETH_Weight
+
+Risky_Weight
+
+Strategy (Long / Short)
+
+Daily_Return
+
+These represent the ideal portfolio weights before accounting for trading fees and account mechanics.
+
+3. Simulation Parameters
+
+Initial Accounts:
+
+Trading Account = 500 USD
+
+Saving Account = 500 USD
+
+Trading Fee: 0.0015
+
+Leverage (scale): user input, default = 1.5
+
+Rounding rules for asset quantities:
+
+BTC → 3 decimals
+
+ETH → 2 decimals
+
+Rebalancing frequency: user input (default = monthly, but can be quarterly, yearly, etc.)
+
+4. Daily Calculation Logic
+
+At each day T:
+
+(a) Asset Allocation at Start of Day
+actual_vol_asset = trading_account(T-1) * scale * Risky_Weight(T) * Asset_Weight(T)
+
+actual_quantity_asset = round(actual_vol_asset / open_price_asset(T), x)
+
+
+x = 3 for BTC, x = 2 for ETH
+
+(b) Net Return
+net_return(T) = Actual_Daily_Return(T) – actual_fee(T)
+
+
+Where:
+
+actual_fee(T) = trading_fee (0.0015) if today’s weight ≠ previous day’s weight
+
+Else actual_fee(T) = 0
+
+(c) Trading Account Update
+trading_account(T) = trading_account(T-1) * (1 + net_return(T))
+
+
+On the first day of the month, net_return(T) = 0 (reset due to rebalancing).
+
+5. Monthly (or User-Defined) Rebalancing
+
+At the end of each rebalancing period:
+
+If trading_account > 500 USD: transfer excess to Saving Account (reset trading back to 500).
+
+If trading_account < 500 USD: transfer from Saving Account to restore trading back to 500.
+
+This ensures the trading account always starts each cycle with a fixed base (500 USD in this example).
+
+6. Exported Results (Excel Format)
+
+The module should export results with the following columns:
+
+Timestamp
+
+trading_account(T-1) (before today’s trade)
+
+trading_account(T) (after today’s trade)
+
+BTC_open_price
+
+BTC_close_price
+
+ETH_open_price
+
+ETH_close_price
+
+BTC_weight
+
+ETH_weight
+
+Risky_Weight
+
+Final Decision (Long / Short)
+
+Daily Portfolio Return
+
+Final BTC Weight
+
+Final ETH Weight
+
+Actual BTC (quantity)
+
+Actual ETH (quantity)
+
+Final Portfolio Return
+
+Profit (USD)
+
+Example Row
+Timestamp: 2025-08-18
+trading_account(T-1): 500
+trading_account(T): 507.23
+BTC_open_price: 65000
+BTC_close_price: 65200
+ETH_open_price: 3500
+ETH_close_price: 3550
+BTC_weight: -1.00
+ETH_weight: 1.00
+Risky Weight: 1.0308522853041016
+Final Decision: Short
+Daily Portfolio Return: 0.0045
+Final BTC Weight: -1.96
+Final ETH Weight: 0.96
+Actual BTC: -0.025
+Actual ETH: 0.32
+Final Portfolio Return: 0.006175698561116933
+Profit ($): 7.230380220000165
+
+So let help me to implement this module, follow best practice, and modular monolith.

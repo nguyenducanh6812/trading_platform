@@ -1,0 +1,13 @@
+We already implement logic below
+
+Now I want to write a python class, to read that file, to calculate below value:
+1. OC = Close - Open price
+2. Diff_OC = OC(T) - OC(T-1).
+ex: Diff_OC of 2021-10-16 = OC(2021-10-16) - OC(2021-10-15)
+3. Mean_Diff_OC
+4. Demean_Diff_OC = Diff_OC - Mean_Diff_OC
+
+But now we need to update a little bit:
+1. Read file from out put of sync data output folder. We can treat it as core database
+2. Write out put to oc_analysis_results, but in the output file, we should have 2 collumn of asset, that is open and close price.
+3. We should write master data like Mean_Diff_OC value to a new sheet in the same file, instead of write to new file.

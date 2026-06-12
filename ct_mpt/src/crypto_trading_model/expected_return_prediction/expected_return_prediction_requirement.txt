@@ -1,0 +1,24 @@
+Base on the oc analys result, and arima demean diff oc result.
+Now we will find the expected return predict.
+First we need to prepare data.
+In prepare data phase, we need to allocate data for Ar.L value of coefficients, which we found in oc arima step.
+For example if we found 30 Ar.L, then we need to allocate data for 30 Ar.L first.
+Ar.L1 (T) = Demean Diff OC (T-1)
+Ar.L2 (T) = Demean Diff OC (T-2)
+So on, we have Ar.L30 (T) = Demean Diff OC(T-30)
+To easy for monitoring, we should write data of Ar.L Alocation to oc_analysis result file.
+So beside of exising collumn, we add Ar.L collumn to the right, and allocate data for them.
+
+The second step after allocate, is calculation below value:
+Prd_Diff_OC = Sigma(Ar.L(i)*Arima.Ar.L(i)) + Mean_Diff_Occ
+Arima.Ar.L is the data of Ar.L found in arima oc analys step, for exp BTC_arima_results - coefficients - ar.L1.
+Mean_Diff_Occ is the data of Mean_Diff_Occ, in master data sheet.
+
+Third step is calculate Prd_OC:
+Prd_OC(T) = Prd_Diff_OC(T) + OC(T-1).
+
+Finally, we calculate Prd_Return
+Prd_Return_Arima(T) = Prd_OC(T)/Open(T)
+
+And let write all value we calculated to the existing BTC_oc_analysis file for monitor
+

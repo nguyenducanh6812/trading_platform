@@ -1,0 +1,28 @@
+ARIMA Analysis Results - Neutral Profile
+============================================================
+
+Portfolio Statistics:
+--------------------
+total_observations: 1572
+mean_daily_return: 0.001091
+daily_volatility: 0.032261
+annualized_return: 0.274831
+annualized_volatility: 0.512132
+min_daily_return: -0.282623
+max_daily_return: 0.235796
+skewness: -0.249734
+kurtosis: 10.941219
+positive_days: 783
+negative_days: 782
+zero_days: 7
+sharpe_ratio: 0.458537
+win_rate: 0.498092
+
+ARIMA Analysis Summary:
+-------------------------
+Optimal Order: ARIMA(0, 0, 1)
+Best AIC: -6344.7437
+Significant Coefficients: 2
+Forecast Ready: True
+Stationarity: True
+Differencing Applied: False

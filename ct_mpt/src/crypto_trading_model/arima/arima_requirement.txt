@@ -1,0 +1,11 @@
+I want to update arima module, to read the data in oc_analysis_results folder,
+read column demean_diff_oc, to find the AR. The parameter of Arima will be p,0,0.
+P will be a config file.
+So let implement as a monolith module, with simple UI.
+1. Input will be asset code,
+2. p, d, q parameter value.
+3. Choose file directory.
+4. Column name: default value is Demean_Diff_OC, we can set it in the texbox, so if user want to change, they can change.
+5. Then our arima will read that file, read that data to find the p number.
+So the output will be a json file, with the p, d, q value, and the arima result.
+Pls follow modular monolith architecture, and follow best practice.

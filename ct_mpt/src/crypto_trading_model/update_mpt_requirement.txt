@@ -1,0 +1,26 @@
+After calculate the expected return by apply arima. Now we need to update our current mpt model,
+to use new expected return predict.
+Currently, we predict return by using mean return of 7 days, as in the data_processor did.
+But now instead of using that, we should read the predict return from file oc_analys result, in oc_analysis_results/BTC_oc_analysis.xlsx.
+in this code of objectives.py, max sharp ratio:
+    def get_objective_function(self, mean_returns: np.ndarray, cov_matrix: np.ndarray, rf_rate: float) -> Callable[[np.ndarray], float]:
+        """Return negative Sharpe ratio for minimization."""
+        def objective(weights: np.ndarray) -> float:
+            port_return = np.sum(weights * mean_returns)
+            port_vol = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
+            if port_vol == 0:
+                return float('inf')
+            sharpe = (port_return - rf_rate) / port_vol
+            return -sharpe
+        return objective
+
+We use input returns to calculate the port_return.
+Now we need to update this to use return from the Prd_Return_Arima of each asset.
+So I think we need to update from backtest, when we pass the data to optimizer, objectives.
+In backtest we have this code:
+temp_optimizer = self.create_temp_optimizer(mean_returns, cov_matrix)
+So I think we could update it to read data, instead of pick mean_returns.
+The mean return only use for covarian metrix, and we can keep it as it is. We only need to update the expected return calculation
+inside the object funciton of strategy, when apply minimize to find max sharp ratio.
+
+So could you help to update that?
